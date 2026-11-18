@@ -66,7 +66,7 @@ function formatDuration(ms) {
   return `${h}:${m}:${s}`;
 }
 
-/* --- TIRAGE ET OUVERTURE DE BOOSTER --- */
+/* --- TIRAGE ET OUVERTURE DE BOOSTER (1 PAR 1) --- */
 function rollCard(minRarity = null) {
   const pool = minRarity
     ? CARD_DATABASE.filter(c => ["R", "UR", "SEC"].includes(c.rarity))
@@ -86,25 +86,99 @@ function rollCard(minRarity = null) {
   return pool[0];
 }
 
+let isOpeningPack = false;
+
 function openPack() {
+  if (isOpeningPack) return;
   if (state.packs <= 0) {
     showToast("❌ Aucun booster disponible ! Achètes-en un ou attends le timer.");
     return;
   }
+
+  isOpeningPack = true;
   state.packs -= 1;
 
-  // 4 cartes aléatoires + 1 carte garantie Rare minimum
+  // 4 cartes aléatoires + 1 carte garantie Rare minimum en dernière position
   const pulled = [rollCard(), rollCard(), rollCard(), rollCard(), rollCard("R")];
   pulled.forEach(c => {
     state.collection[c.id] = (state.collection[c.id] || 0) + 1;
   });
-
   saveState();
 
-  const container = document.getElementById("opened-cards-container");
-  container.innerHTML = pulled.map(card => renderCardHTML(card, { badgeText: "NOUVEAU" })).join("");
-  attachHoloListeners(container);
-  document.getElementById("pack-modal").classList.remove("hidden");
+  // Animation de déchirure du booster avant d'afficher les cartes dos tourné
+  const packEl = document.getElementById("booster-pack");
+  packEl.classList.add("opening");
+
+  setTimeout(() => {
+    packEl.classList.remove("opening");
+    isOpeningPack = false;
+
+    const modal = document.getElementById("pack-modal");
+    const container = document.getElementById("opened-cards-container");
+    const closeBtn = document.getElementById("btn-close-modal");
+    const hint = modal.querySelector(".modal-hint");
+
+    closeBtn.classList.add("hidden");
+    hint.textContent = "Clique sur chaque carte pour la révéler une par une !";
+
+    // Génération des 5 emplacements face cachée
+    container.innerHTML = pulled.map((card, idx) => `
+      <div class="flip-slot" data-rarity="${card.rarity}" data-index="${idx}">
+        <div class="flip-inner">
+          <div class="flip-back">
+            <div class="flip-back-emblem">✦</div>
+            <div class="flip-back-label">Carte ${idx + 1}/5</div>
+          </div>
+          <div class="flip-front">
+            ${renderCardHTML(card)}
+          </div>
+        </div>
+      </div>
+    `).join("");
+
+    // Ajout d'un bouton "Tout révéler" à côté du bouton final
+    let revealAllBtn = document.getElementById("btn-reveal-all");
+    if (!revealAllBtn) {
+      revealAllBtn = document.createElement("button");
+      revealAllBtn.id = "btn-reveal-all";
+      revealAllBtn.className = "btn-secondary";
+      revealAllBtn.textContent = "TOUT RÉVÉLER";
+      closeBtn.parentNode.insertBefore(revealAllBtn, closeBtn);
+    }
+    revealAllBtn.classList.remove("hidden");
+
+    let revealedCount = 0;
+    const slots = container.querySelectorAll(".flip-slot");
+
+    const revealSlot = (slot) => {
+      if (slot.classList.contains("flipped")) return;
+      slot.classList.add("flipped");
+      revealedCount++;
+
+      const rarity = slot.dataset.rarity;
+      if (rarity === "SEC") showToast("🌟 CARTE SECRÈTE DÉBLOQUÉE !");
+      else if (rarity === "UR") showToast("🔥 ULTRA RARE !");
+
+      if (revealedCount === slots.length) {
+        revealAllBtn.classList.add("hidden");
+        closeBtn.classList.remove("hidden");
+        hint.textContent = "Survole les cartes pour admirer les reflets holographiques !";
+      }
+    };
+
+    slots.forEach(slot => {
+      slot.addEventListener("click", () => revealSlot(slot));
+    });
+
+    revealAllBtn.onclick = () => {
+      slots.forEach((slot, i) => {
+        setTimeout(() => revealSlot(slot), i * 140);
+      });
+    };
+
+    attachHoloListeners(container);
+    modal.classList.remove("hidden");
+  }, 520);
 }
 
 document.getElementById("btn-open-pack").addEventListener("click", openPack);
