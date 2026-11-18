@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TCG Studio - Prototype Solo</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- BARRE DE NAVIGATION -->
+  <header class="navbar">
+    <div class="logo">TCG<span>STUDIO</span></div>
+
+    <nav class="nav-pills">
+      <button class="nav-btn active" data-tab="boosters">BOOSTERS</button>
+      <button class="nav-btn" data-tab="collection">COLLECTION <span id="nav-count" class="badge">0/0</span></button>
+      <button class="nav-btn" data-tab="grading">GRADATION</button>
+      <button class="nav-btn" data-tab="market">RECYCLAGE</button>
+    </nav>
+
+    <div class="currencies">
+      <div class="currency-pill gold" title="Pièces (achat de boosters & gradation)">
+        <span>🪙</span> <span id="coins-display">500</span>
+      </div>
+      <div class="currency-pill gems" title="Gemmes (accélération de timer)">
+        <span>💎</span> <span id="gems-display">100</span>
+      </div>
+      <div class="save-controls">
+        <button id="btn-export" class="icon-btn" title="Exporter la sauvegarde (JSON)">💾</button>
+        <label class="icon-btn" title="Importer une sauvegarde (JSON)">
+          📂<input type="file" id="btn-import" accept=".json" hidden>
+        </label>
+      </div>
+    </div>
+  </header>
+
+  <!-- CONTENU PRINCIPAL -->
+  <main class="container">
+
+    <!-- ONGLET 1 : BOOSTERS -->
+    <section id="tab-boosters" class="tab-section active">
+      <h1 class="section-title">OUVRE UN BOOSTER</h1>
+
+      <div class="booster-stage">
+        <div id="booster-pack" class="booster-pack">
+          <div class="booster-foil"></div>
+          <div class="booster-art">
+            <span class="booster-tag">ÉDITION 01</span>
+            <h2>ORIGINS</h2>
+            <p>5 CARTES • 1 RARE MIN.</p>
+          </div>
+          <div class="booster-counter">×<span id="pack-count">2</span></div>
+        </div>
+
+        <div class="booster-actions">
+          <button id="btn-open-pack" class="btn-primary">OUVRIR UN BOOSTER</button>
+          <button id="btn-buy-pack" class="btn-secondary">ACHETER (🪙 150)</button>
+        </div>
+      </div>
+
+      <!-- TIMER BOOSTER GRATUIT (Inspiré de ton interface) -->
+      <div class="timer-card">
+        <p class="timer-hint">Prochain booster gratuit disponible automatiquement :</p>
+        <div class="timer-row">
+          <span>Prochain booster gratuit 🕒</span>
+          <span id="timer-text" class="timer-clock">00:00:00</span>
+        </div>
+        <div class="progress-bar">
+          <div id="timer-progress" class="progress-fill"></div>
+        </div>
+        <button id="btn-skip-timer" class="btn-gem">ACCÉLÉRER • 💎 25</button>
+      </div>
+    </section>
+
+    <!-- ONGLET 2 : COLLECTION (CARTODEX) -->
+    <section id="tab-collection" class="tab-section">
+      <div class="section-header">
+        <h1 class="section-title">MA COLLECTION</h1>
+        <div class="filters">
+          <select id="filter-rarity">
+            <option value="ALL">Toutes les raretés</option>
+            <option value="C">Commune (C)</option>
+            <option value="UC">Peu Commune (UC)</option>
+            <option value="R">Rare (R)</option>
+            <option value="UR">Ultra Rare (UR)</option>
+            <option value="SEC">Secrète (SEC)</option>
+          </select>
+          <select id="filter-status">
+            <option value="ALL">Toutes (Possédées + Manquantes)</option>
+            <option value="OWNED">Possédées uniquement</option>
+            <option value="GRADED">Gradées uniquement (Slabs)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Grille des cartes gradées -->
+      <div id="graded-section" class="sub-section hidden">
+        <h2 class="sub-title">🏆 VITRINE DES CARTES GRADÉES</h2>
+        <div id="graded-grid" class="cards-grid slabs-grid"></div>
+      </div>
+
+      <!-- Grille du Cartodex standard -->
+      <h2 class="sub-title">📖 CARTODEX</h2>
+      <div id="collection-grid" class="cards-grid"></div>
+    </section>
+
+    <!-- ONGLET 3 : LABORATOIRE DE GRADATION -->
+    <section id="tab-grading" class="tab-section">
+      <h1 class="section-title">LABORATOIRE DE GRADATION</h1>
+      <p class="section-subtitle">Envoie un exemplaire d'une carte pour obtenir une note officielle sur 10 et la sceller dans un boîtier rigide. Coût : <strong>🪙 250</strong></p>
+
+      <div class="grading-workbench">
+        <div class="grading-selector">
+          <label for="grading-select">Choisis une carte possédée (non gradée) :</label>
+          <select id="grading-select"></select>
+          <button id="btn-grade-card" class="btn-primary">LANCER L'EXPERTISE (🪙 250)</button>
+        </div>
+
+        <div id="grading-result-zone" class="grading-result-zone">
+          <p class="placeholder-text">Sélectionne une carte et lance l'expertise pour révéler sa note.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ONGLET 4 : RECYCLAGE / MARCHÉ -->
+    <section id="tab-market" class="tab-section">
+      <h1 class="section-title">ATELIER DE RECYCLAGE</h1>
+      <p class="section-subtitle">Convertis tes doublons en pièces pour acheter de nouveaux boosters ou financer tes gradations.</p>
+      <div class="recycle-header">
+        <button id="btn-recycle-all" class="btn-secondary">TOUT RECYCLER (GARDER 1 DE CHAQUE)</button>
+      </div>
+      <div id="recycle-grid" class="cards-grid"></div>
+    </section>
+
+  </main>
+
+  <!-- MODAL D'OUVERTURE DE BOOSTER -->
+  <div id="pack-modal" class="modal hidden">
+    <div class="modal-content">
+      <h2>CONTENU DU BOOSTER</h2>
+      <p class="modal-hint">Survole les cartes pour admirer les reflets holographiques !</p>
+      <div id="opened-cards-container" class="opened-cards"></div>
+      <button id="btn-close-modal" class="btn-primary">AJOUTER À LA COLLECTION</button>
+    </div>
+  </div>
+
+  <!-- TOAST DE NOTIFICATION -->
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="cards.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
