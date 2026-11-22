@@ -20,6 +20,15 @@ const COMPLETE_BONUS = 20;    // par carte complète (normale + 11 notes)
 
 const SLAB_DISPLAY_LIMIT = 60; // nombre de cartes gradées affichées dans la vitrine
 
+// Valeur de recyclage d'une carte gradée = coût de gradation de sa rareté × ce coefficient (selon la note)
+const GRADE_RECYCLE_FACTOR = { 1: 0.15, 2: 0.2, 3: 0.25, 4: 0.3, 5: 0.35, 6: 0.4, 7: 0.45, 8: 0.5, 9: 0.6, 9.5: 0.7, 10: 0.9 };
+
+const CARD_BY_ID = Object.fromEntries(CARD_DATABASE.map(c => [c.id, c]));
+
+// Fiche carte (agrandissement) : carte ouverte et version affichée
+let detailCardId = null;
+let detailVersion = "normal";
+
 let state = loadState();
 
 function loadState() {
@@ -298,7 +307,7 @@ function rollGrade() {
 }
 
 function getGradeCost(cardId) {
-  const card = CARD_DATABASE.find(c => c.id === cardId);
+  const card = CARD_BY_ID[cardId];
   return card ? GRADE_COSTS[card.rarity] : 0;
 }
 
@@ -360,7 +369,7 @@ document.getElementById("btn-grade-card").addEventListener("click", () => {
 
 /* --- RECYCLAGE --- */
 function recycleCard(cardId, count = 1) {
-  const card = CARD_DATABASE.find(c => c.id === cardId);
+  const card = CARD_BY_ID[cardId];
   if (!card || (state.collection[cardId] || 0) < count) return;
   state.collection[cardId] -= count;
   if (state.collection[cardId] <= 0) delete state.collection[cardId];
@@ -396,7 +405,7 @@ function renderCardHTML(card, opts = {}) {
   const artContent = showArt ? "" : (opts.locked ? "?" : card.emoji);
 
   return `
-    <div class="tcg-card rarity-${card.rarity} ${opts.locked ? "locked" : ""} ${opts.complete ? "complete" : ""}">
+    <div class="tcg-card rarity-${card.rarity} ${opts.locked ? "locked" : ""} ${opts.complete ? "complete" : ""} ${opts.clickable ? "clickable" : ""}" data-card-id="${card.id}">
       <div class="holo-overlay"></div>
       <div class="card-header">
         <span>#${card.id}</span>
@@ -413,11 +422,11 @@ function renderCardHTML(card, opts = {}) {
   `;
 }
 
-function renderSlabHTML(slab) {
-  const card = CARD_DATABASE.find(c => c.id === slab.cardId);
+function renderSlabHTML(slab, opts = {}) {
+  const card = CARD_BY_ID[slab.cardId];
   const labelTitle = slab.isBlackLabel ? "BLACK LABEL 10" : (GRADE_LABELS[slab.grade] || "GRADED");
   return `
-    <div class="slab-wrapper">
+    <div class="slab-wrapper ${opts.clickable ? "clickable" : ""}" data-card-id="${slab.cardId}" data-grade="${slab.grade}">
       <div class="slab-label ${slab.isBlackLabel ? "black-label" : ""}">
         <div class="slab-info">
           <strong>${card.name}</strong>
@@ -429,9 +438,212 @@ function renderSlabHTML(slab) {
       <div class="slab-subgrades">
         C:${slab.subgrades.centering} | CO:${slab.subgrades.corners} | B:${slab.subgrades.edges} | S:${slab.subgrades.surface}
       </div>
+      ${opts.dupValue ? `<button class="recycle-btn slab-recycle" data-uid="${slab.uid}">Doublon : recycler (+🪙 ${opts.dupValue})</button>` : ""}
     </div>
   `;
 }
+
+/* --- DOUBLONS GRADÉS & FICHE CARTE --- */
+function slabQuality(slab) {
+  const sg = slab.subgrades || {};
+  return (slab.isBlackLabel ? 100 : 0) + (sg.centering || 0) + (sg.corners || 0) + (sg.edges || 0) + (sg.surface || 0);
+}
+
+// Regroupe les cartes gradées par carte + note ; la meilleure est conservée en premier
+function getSlabGroups() {
+  const groups = {};
+  for (const s of state.gradedCards) {
+    const key = `${s.cardId}|${s.grade}`;
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(s);
+  }
+  for (const key in groups) groups[key].sort((a, b) => slabQuality(b) - slabQuality(a));
+  return groups;
+}
+
+// Doublons = tout sauf la meilleure carte de chaque combinaison carte + note
+function getDuplicateSlabs(groups = getSlabGroups()) {
+  return Object.values(groups).flatMap(list => list.slice(1));
+}
+
+function slabRecycleValue(slab) {
+  const card = CARD_BY_ID[slab.cardId];
+  if (!card) return 0;
+  return Math.max(1, Math.round(GRADE_COSTS[card.rarity] * (GRADE_RECYCLE_FACTOR[slab.grade] || 0.2)));
+}
+
+function recycleSlabs(list) {
+  if (!list.length) return;
+  const gain = list.reduce((n, s) => n + slabRecycleValue(s), 0);
+  const toRemove = new Set(list);
+  state.gradedCards = state.gradedCards.filter(s => !toRemove.has(s));
+  state.coins += gain;
+  saveState();
+  const n = list.length;
+  showToast(`♻️ ${n} carte${n > 1 ? "s" : ""} gradée${n > 1 ? "s" : ""} recyclée${n > 1 ? "s" : ""} : +${gain} pièces !`);
+}
+
+function updateRecycleSlabsButton(dups) {
+  const btn = document.getElementById("btn-recycle-slabs");
+  if (!btn) return;
+  const total = dups.reduce((n, s) => n + slabRecycleValue(s), 0);
+  btn.disabled = dups.length === 0;
+  btn.textContent = dups.length
+    ? `RECYCLER ${dups.length} DOUBLON${dups.length > 1 ? "S" : ""} GRADÉ${dups.length > 1 ? "S" : ""} (🪙 +${total})`
+    : "AUCUN DOUBLON GRADÉ";
+}
+
+function openCardDetail(cardId, version = "normal") {
+  if (!CARD_BY_ID[cardId]) return;
+  detailCardId = cardId;
+  detailVersion = version;
+  renderCardDetail();
+  document.getElementById("card-modal").classList.remove("hidden");
+  document.getElementById("btn-close-card-modal").focus();
+}
+
+function closeCardDetail() {
+  detailCardId = null;
+  document.getElementById("card-modal").classList.add("hidden");
+}
+
+function renderCardDetail() {
+  const card = CARD_BY_ID[detailCardId];
+  if (!card) return closeCardDetail();
+
+  const qty = state.collection[card.id] || 0;
+  const groups = getSlabGroups();
+  const normalDup = Math.max(0, qty - 1);
+  const normalValue = normalDup * RARITY_CONFIG[card.rarity].recycleValue;
+  const gradeData = GRADES.map(g => {
+    const list = groups[`${card.id}|${g}`] || [];
+    return { grade: g, count: list.length, best: list[0], dups: list.slice(1) };
+  });
+  const gradesOwned = gradeData.filter(x => x.count > 0).length;
+  const versions = (qty > 0 ? 1 : 0) + gradesOwned;
+  const complete = qty > 0 && gradesOwned === GRADES.length;
+  const slabDupValue = gradeData.reduce((n, x) => n + x.dups.reduce((m, s) => m + slabRecycleValue(s), 0), 0);
+  const slabDupCount = gradeData.reduce((n, x) => n + x.dups.length, 0);
+  const totalValue = normalValue + slabDupValue;
+  const totalDup = normalDup + slabDupCount;
+
+  // Aperçu en grand : carte normale ou carte gradée sélectionnée
+  const selected = detailVersion === "normal" ? null : gradeData.find(x => x.grade === detailVersion && x.best);
+  if (!selected) detailVersion = "normal";
+  document.getElementById("card-detail-preview").innerHTML = selected
+    ? renderSlabHTML(selected.best)
+    : renderCardHTML(card, { complete, countText: qty > 0 ? `×${qty}` : "" });
+
+  const tile = (version, label, count, dupCount, dupValue) => {
+    const owned = count > 0;
+    const isSelected = String(detailVersion) === String(version);
+    return `
+      <div class="version-tile ${owned ? "owned" : "missing"} ${isSelected ? "selected" : ""}" data-version="${version}" ${owned ? 'tabindex="0" role="button"' : ""}>
+        <span class="vt-grade">${label}</span>
+        <span class="vt-count">${owned ? `×${count}` : "—"}</span>
+        ${dupCount > 0 ? `<button class="vt-recycle" data-recycle="${version}">♻ ${dupCount} (+${dupValue})</button>` : ""}
+      </div>`;
+  };
+
+  const tiles = tile("normal", "Normale", qty, normalDup, normalValue) + gradeData.map(x =>
+    tile(x.grade, x.grade, x.count, x.dups.length, x.dups.reduce((n, s) => n + slabRecycleValue(s), 0))
+  ).join("");
+
+  const pct = Math.round((versions / TOTAL_VERSIONS) * 100);
+  const edition = EDITIONS[card.edition] ? EDITIONS[card.edition].name : "";
+  document.getElementById("card-detail-info").innerHTML = `
+    <h2>${escapeHTML(card.name)}</h2>
+    <p class="card-detail-meta">#${card.id} • ${RARITY_CONFIG[card.rarity].label}${edition ? ` • ${escapeHTML(edition)}` : ""}</p>
+    ${complete ? `<p class="complete-note">★ Carte complète : 100 % collectée</p>` : ""}
+    <div class="card-progress">
+      <div class="card-progress-bar"><div style="width:${pct}%"></div></div>
+      <span>${versions}/${TOTAL_VERSIONS}</span>
+    </div>
+    <h3>Versions possédées</h3>
+    <div class="version-grid">${tiles}</div>
+    <p class="detail-help">Clique sur une version pour la voir en grand. Un exemplaire de chaque version est conservé : seuls les doublons se recyclent, à un prix qui dépend de la note.</p>
+    <button id="btn-detail-recycle-all" class="btn-secondary" ${totalDup ? "" : "disabled"}>
+      ${totalDup ? `Recycler tous les doublons de cette carte (🪙 +${totalValue})` : "Aucun doublon à recycler"}
+    </button>
+  `;
+}
+
+document.getElementById("card-modal").addEventListener("click", e => {
+  if (e.target.id === "card-modal" || e.target.closest("#btn-close-card-modal")) return closeCardDetail();
+
+  const recycleBtn = e.target.closest("[data-recycle]");
+  if (recycleBtn) {
+    const kind = recycleBtn.dataset.recycle;
+    if (kind === "normal") {
+      recycleCard(detailCardId, Math.max(0, (state.collection[detailCardId] || 0) - 1));
+    } else {
+      recycleSlabs(getDuplicateSlabs().filter(s => s.cardId === detailCardId && s.grade === Number(kind)));
+    }
+    return;
+  }
+
+  if (e.target.closest("#btn-detail-recycle-all")) {
+    const normalDup = Math.max(0, (state.collection[detailCardId] || 0) - 1);
+    const card = CARD_BY_ID[detailCardId];
+    const slabDups = getDuplicateSlabs().filter(s => s.cardId === detailCardId);
+    const total = normalDup * RARITY_CONFIG[card.rarity].recycleValue + slabDups.reduce((n, s) => n + slabRecycleValue(s), 0);
+    if (total <= 0) return;
+    if (!confirm(`Recycler tous les doublons de « ${card.name} » pour +${total} pièces ?\nUn exemplaire de chaque version est conservé.`)) return;
+    if (normalDup > 0) {
+      state.collection[detailCardId] -= normalDup;
+      state.coins += normalDup * RARITY_CONFIG[card.rarity].recycleValue;
+    }
+    if (slabDups.length) {
+      const toRemove = new Set(slabDups);
+      state.gradedCards = state.gradedCards.filter(s => !toRemove.has(s));
+      state.coins += slabDups.reduce((n, s) => n + slabRecycleValue(s), 0);
+    }
+    saveState();
+    showToast(`♻️ Doublons recyclés : +${total} pièces !`);
+    return;
+  }
+
+  const tile = e.target.closest(".version-tile");
+  if (tile && !tile.classList.contains("missing")) {
+    detailVersion = tile.dataset.version === "normal" ? "normal" : Number(tile.dataset.version);
+    renderCardDetail();
+  }
+});
+
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && detailCardId) closeCardDetail();
+});
+
+// Clic sur une carte de la collection : ouvre la fiche
+document.getElementById("collection-grid").addEventListener("click", e => {
+  const el = e.target.closest(".tcg-card");
+  if (!el) return;
+  const id = el.dataset.cardId;
+  const owned = (state.collection[id] || 0) > 0 || state.gradedCards.some(g => g.cardId === id);
+  if (!owned) return showToast("Tu n'as pas encore cette carte.");
+  openCardDetail(id);
+});
+
+// Clic sur une carte gradée : ouvre la fiche à cette note ; bouton pour recycler un doublon
+document.getElementById("graded-grid").addEventListener("click", e => {
+  const recycleBtn = e.target.closest(".slab-recycle");
+  if (recycleBtn) {
+    const slab = getDuplicateSlabs().find(s => s.uid === recycleBtn.dataset.uid);
+    if (slab) recycleSlabs([slab]);
+    return;
+  }
+  const wrap = e.target.closest(".slab-wrapper");
+  if (wrap) openCardDetail(wrap.dataset.cardId, Number(wrap.dataset.grade));
+});
+
+// Onglet Recyclage : tous les doublons gradés d'un coup
+document.getElementById("btn-recycle-slabs").addEventListener("click", () => {
+  const dups = getDuplicateSlabs();
+  if (!dups.length) return showToast("Aucun doublon gradé à recycler !");
+  const total = dups.reduce((n, s) => n + slabRecycleValue(s), 0);
+  if (!confirm(`Recycler ${dups.length} carte${dups.length > 1 ? "s" : ""} gradée${dups.length > 1 ? "s" : ""} en double pour +${total} pièces ?\nUne carte de chaque note est conservée.`)) return;
+  recycleSlabs(dups);
+});
 
 /* --- EFFET HOLOGRAPHIQUE (un seul écouteur pour toutes les cartes) --- */
 document.addEventListener("mousemove", e => {
@@ -547,6 +759,8 @@ function renderMyProgress(gradeMap) {
 function updateUI() {
   renderEditionPicker();
   const gradeMap = buildGradeMap();
+  const dupSlabs = getDuplicateSlabs();
+  const dupSet = new Set(dupSlabs);
   document.getElementById("coins-display").textContent = state.coins;
   document.getElementById("gems-display").textContent = state.gems;
   document.getElementById("pack-count").textContent = state.packs;
@@ -565,7 +779,7 @@ function updateUI() {
   if (state.gradedCards.length > 0 && statusFilter !== "OWNED") {
     gradedSection.classList.remove("hidden");
     const hidden = state.gradedCards.length - SLAB_DISPLAY_LIMIT;
-    gradedGrid.innerHTML = state.gradedCards.slice(0, SLAB_DISPLAY_LIMIT).map(s => renderSlabHTML(s)).join("") +
+    gradedGrid.innerHTML = state.gradedCards.slice(0, SLAB_DISPLAY_LIMIT).map(s => renderSlabHTML(s, { clickable: true, dupValue: dupSet.has(s) ? slabRecycleValue(s) : 0 })).join("") +
       (hidden > 0 ? `<p class="placeholder-text">… et ${hidden} autre${hidden > 1 ? "s" : ""} carte${hidden > 1 ? "s" : ""} gradée${hidden > 1 ? "s" : ""}</p>` : "");
   } else {
     gradedSection.classList.add("hidden");
@@ -588,6 +802,7 @@ function updateUI() {
       const versions = (qty > 0 ? 1 : 0) + gradesOwned;
       return renderCardHTML(c, {
         locked: qty === 0 && gradesOwned === 0,
+        clickable: true,
         complete: qty > 0 && gradesOwned === GRADES.length,
         countText: qty > 0 ? `×${qty}` : (gradesOwned > 0 ? "Gradée" : "Manquante"),
         extraHTML: versions > 0 ? progressHTML(versions) : ""
@@ -621,6 +836,8 @@ function updateUI() {
 
   updateGradeButton();
   renderMyProgress(gradeMap);
+  updateRecycleSlabsButton(dupSlabs);
+  if (detailCardId) renderCardDetail();
 }
 
 document.getElementById("filter-rarity").addEventListener("change", updateUI);

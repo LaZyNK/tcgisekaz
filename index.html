@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=14">
+  <link rel="stylesheet" href="style.css?v=15">
 </head>
 <body>
 
@@ -137,9 +137,10 @@
     <!-- ONGLET 4 : RECYCLAGE / MARCHÉ -->
     <section id="tab-market" class="tab-section">
       <h1 class="section-title">ATELIER DE RECYCLAGE</h1>
-      <p class="section-subtitle">Convertis tes doublons en pièces pour acheter de nouveaux boosters ou financer tes gradations.</p>
+      <p class="section-subtitle">Convertis tes doublons en pièces pour acheter de nouveaux boosters ou financer tes gradations. Les cartes gradées en double (même carte, même note) se recyclent aussi : leur valeur dépend de la note.</p>
       <div class="recycle-header">
         <button id="btn-recycle-all" class="btn-secondary">TOUT RECYCLER (GARDER 1 DE CHAQUE)</button>
+        <button id="btn-recycle-slabs" class="btn-secondary">AUCUN DOUBLON GRADÉ</button>
       </div>
       <div id="recycle-grid" class="cards-grid"></div>
     </section>
@@ -178,11 +179,20 @@
     </div>
   </div>
 
+  <!-- FICHE CARTE (agrandissement, versions possédées, recyclage) -->
+  <div id="card-modal" class="modal hidden" role="dialog" aria-modal="true" aria-label="Fiche de la carte">
+    <div class="card-detail">
+      <button id="btn-close-card-modal" class="card-detail-close" aria-label="Fermer">✕</button>
+      <div id="card-detail-preview" class="card-detail-preview"></div>
+      <div id="card-detail-info" class="card-detail-info"></div>
+    </div>
+  </div>
+
   <!-- TOAST DE NOTIFICATION -->
   <div id="toast" class="toast hidden"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="cards.js?v=14"></script>
-  <script src="app.js?v=14"></script>
+  <script src="cards.js?v=15"></script>
+  <script src="app.js?v=15"></script>
 </body>
 </html>
