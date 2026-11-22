@@ -87,6 +87,49 @@ function rollCard(minRarity = null) {
   return pool[0];
 }
 
+function playRareEffect(slot, rarity) {
+  const colors = { R: "#38bdf8", UR: "#c084fc", SEC: "#facc15" };
+  const counts = { R: 12, UR: 22, SEC: 36 };
+  const color = colors[rarity];
+
+  const burst = document.createElement("div");
+  burst.className = "reveal-burst";
+  burst.style.setProperty("--c", color);
+
+  for (let i = 0; i < counts[rarity]; i++) {
+    const p = document.createElement("span");
+    p.className = "reveal-particle";
+    const angle = (Math.PI * 2 * i) / counts[rarity] + Math.random() * 0.4;
+    const dist = 90 + Math.random() * 110;
+    p.style.setProperty("--dx", `${Math.cos(angle) * dist}px`);
+    p.style.setProperty("--dy", `${Math.sin(angle) * dist}px`);
+    p.style.animationDelay = `${Math.random() * 0.1}s`;
+    burst.appendChild(p);
+  }
+
+  slot.classList.add("bursting");
+  slot.appendChild(burst);
+  setTimeout(() => {
+    burst.remove();
+    slot.classList.remove("bursting");
+  }, 1200);
+
+  if (rarity === "UR" || rarity === "SEC") {
+    const flash = document.createElement("div");
+    flash.className = "screen-flash";
+    flash.style.setProperty("--c", color);
+    document.body.appendChild(flash);
+    setTimeout(() => flash.remove(), 700);
+  }
+
+  if (rarity === "SEC") {
+    const content = document.querySelector("#pack-modal .modal-content");
+    content.classList.remove("shake");
+    void content.offsetWidth; // relance l'animation
+    content.classList.add("shake");
+  }
+}
+
 let isOpeningPack = false;
 
 function openPack() {
