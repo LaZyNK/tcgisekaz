@@ -465,9 +465,26 @@ function renderEditionPicker() {
 
   const ed = EDITIONS[state.edition];
   const pack = document.getElementById("booster-pack");
-  pack.style.background = ed.gradient;
   pack.querySelector(".booster-tag").textContent = ed.tag;
   pack.querySelector(".booster-art h2").textContent = ed.name;
+  pack.setAttribute("aria-label", `Booster ${ed.name}`);
+
+  if (ed.pack) {
+    // Paquet illustré : l'image remplace le dégradé et les textes
+    pack.classList.add("has-art");
+    pack.style.background = "";
+    pack.style.backgroundImage = `url('${ed.pack}')`;
+  } else {
+    pack.classList.remove("has-art");
+    pack.style.backgroundImage = "";
+    pack.style.background = ed.gradient;
+  }
+
+  // Précharge toutes les illustrations de paquets une seule fois
+  if (!renderEditionPicker.preloaded) {
+    Object.values(EDITIONS).forEach(e => { if (e.pack) new Image().src = e.pack; });
+    renderEditionPicker.preloaded = true;
+  }
 }
 
 document.getElementById("edition-picker").addEventListener("click", e => {

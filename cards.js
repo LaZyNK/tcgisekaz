@@ -7,9 +7,9 @@ const RARITY_CONFIG = {
 };
 
 const EDITIONS = {
-  E1: { name: "ORIGINS",  tag: "ÉDITION 01", gradient: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 50%, #ec4899 100%)" },
-  E2: { name: "ABYSSES",  tag: "ÉDITION 02", gradient: "linear-gradient(135deg, #10b981 0%, #0ea5e9 50%, #6366f1 100%)" },
-  E3: { name: "ÉCLIPSE",  tag: "ÉDITION 03", gradient: "linear-gradient(135deg, #f59e0b 0%, #ef4444 50%, #7c3aed 100%)" }
+  E1: { name: "ORIGINS",  tag: "ÉDITION 01", gradient: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 50%, #ec4899 100%)", pack: "assets/boosters/origins.webp" },
+  E2: { name: "ABYSSES",  tag: "ÉDITION 02", gradient: "linear-gradient(135deg, #10b981 0%, #0ea5e9 50%, #6366f1 100%)", pack: "assets/boosters/abysses.webp" },
+  E3: { name: "ÉCLIPSE",  tag: "ÉDITION 03", gradient: "linear-gradient(135deg, #f59e0b 0%, #ef4444 50%, #7c3aed 100%)", pack: "assets/boosters/eclipse.webp" }
 };
 
 // Catalogue des cartes : ajoute tes visuels dans "image" (ex: "assets/carte01.png")
@@ -23,11 +23,11 @@ const CARD_DATABASE = [
   { id: "006", name: "Chasseur Crépuscule", rarity: "UC", emoji: "🏹", bg: "linear-gradient(135deg, #1e3a8a, #1d4ed8)", image: "assets/cards/006.webp", edition: "E1" },
   { id: "007", name: "Alchimiste Lunaire", rarity: "UC", emoji: "🧪", bg: "linear-gradient(135deg, #4c1d95, #6d28d9)", image: "assets/cards/007.webp", edition: "E1" },
   { id: "008", name: "Chevalier du Néant", rarity: "R", emoji: "⚔️", bg: "linear-gradient(135deg, #0c4a6e, #0284c7)", image: "assets/cards/008.webp", edition: "E1" },
-  { id: "009", name: "Dragon des Cendres", rarity: "R", emoji: "🐉", bg: "linear-gradient(135deg, #7f1d1d, #dc2626)", image: "", edition: "E1" },
-  { id: "010", name: "Archimage Céleste", rarity: "UR", emoji: "🔮", bg: "linear-gradient(135deg, #581c87, #c026d3)", image: "", edition: "E1" },
-  { id: "011", name: "Valkyrie Solaire", rarity: "UR", emoji: "🪽", bg: "linear-gradient(135deg, #7c2d12, #ea580c)", image: "", edition: "E1" },
-  { id: "012", name: "Cerf Lunaire Alpha", rarity: "SEC", emoji: "🦌", bg: "linear-gradient(135deg, #311042, #facc15)", image: "", edition: "E1" },
-  { id: "013", name: "Lapin d'Écorce", rarity: "C", emoji: "🐇", bg: "linear-gradient(135deg, #365314, #84cc16)", image: "", edition: "E1" },
+  { id: "009", name: "Dragon des Cendres", rarity: "R", emoji: "🐉", bg: "linear-gradient(135deg, #7f1d1d, #dc2626)", image: "assets/cards/009.webp", edition: "E1" },
+  { id: "010", name: "Archimage Céleste", rarity: "UR", emoji: "🔮", bg: "linear-gradient(135deg, #581c87, #c026d3)", image: "assets/cards/010.webp", edition: "E1" },
+  { id: "011", name: "Valkyrie Solaire", rarity: "UR", emoji: "🪽", bg: "linear-gradient(135deg, #7c2d12, #ea580c)", image: "assets/cards/011.webp", edition: "E1" },
+  { id: "012", name: "Cerf Lunaire Alpha", rarity: "SEC", emoji: "🦌", bg: "linear-gradient(135deg, #311042, #facc15)", image: "assets/cards/012.webp", edition: "E1" },
+  { id: "013", name: "Lapin d'Écorce", rarity: "C", emoji: "🐇", bg: "linear-gradient(135deg, #365314, #84cc16)", image: "assets/cards/013.webp", edition: "E1" },
   { id: "014", name: "Hibou de Brume", rarity: "C", emoji: "🦉", bg: "linear-gradient(135deg, #0f172a, #475569)", image: "", edition: "E1" },
   { id: "015", name: "Champignon Sporé", rarity: "C", emoji: "🍄", bg: "linear-gradient(135deg, #881337, #e11d48)", image: "", edition: "E1" },
   { id: "016", name: "Scarabée de Jade", rarity: "C", emoji: "🪲", bg: "linear-gradient(135deg, #064e3b, #047857)", image: "", edition: "E1" },
