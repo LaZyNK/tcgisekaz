@@ -21,6 +21,7 @@ function loadState() {
 
 function saveState() {
   localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+  queueCloudSave();
   updateUI();
 }
 
