@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>TCG Studio - Prototype Solo</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=6">
 </head>
 <body>
 
@@ -81,18 +81,18 @@
         <h1 class="section-title">MA COLLECTION</h1>
         <div class="filters">
           <select id="filter-rarity">
-            <select id="filter-edition">
-               <option value="ALL">Toutes les éditions</option>
-               <option value="E1">Édition 1</option>
-               <option value="E2">Édition 2</option>
-              <option value="E3">Édition 3</option>
-            </select>
             <option value="ALL">Toutes les raretés</option>
             <option value="C">Commune (C)</option>
             <option value="UC">Peu Commune (UC)</option>
             <option value="R">Rare (R)</option>
             <option value="UR">Ultra Rare (UR)</option>
             <option value="SEC">Secrète (SEC)</option>
+          </select>
+          <select id="filter-edition">
+            <option value="ALL">Toutes les éditions</option>
+            <option value="E1">Édition 1 — Origins</option>
+            <option value="E2">Édition 2 — Abysses</option>
+            <option value="E3">Édition 3 — Éclipse</option>
           </select>
           <select id="filter-status">
             <option value="ALL">Toutes (Possédées + Manquantes)</option>
@@ -157,7 +157,7 @@
   <div id="toast" class="toast hidden"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="cards.js?v=6"></script>
-<script src="app.js?v=6"></script>
+  <script src="cards.js?v=6"></script>
+  <script src="app.js?v=6"></script>
 </body>
 </html>
