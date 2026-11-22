@@ -959,10 +959,12 @@ async function syncFromCloud() {
     localStorage.setItem(SAVE_KEY, JSON.stringify(state));
     updateUI();
     showToast("☁️ Sauvegarde en ligne chargée !");
+    if (typeof grantDiscordBonus === "function") grantDiscordBonus();
   } else {
     // Première connexion : on envoie la progression locale actuelle
     await pushToCloud();
     showToast("☁️ Ta progression a été envoyée en ligne !");
+    if (typeof grantDiscordBonus === "function") grantDiscordBonus();
   }
 }
 

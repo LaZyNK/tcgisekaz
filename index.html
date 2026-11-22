@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=17">
+  <link rel="stylesheet" href="style.css?v=18">
 </head>
 <body>
 
@@ -23,6 +23,7 @@
       <button class="nav-btn active" data-tab="boosters">BOOSTERS</button>
       <button class="nav-btn" data-tab="collection">COLLECTION <span id="nav-count" class="badge">0/0</span></button>
       <button class="nav-btn" data-tab="grading">GRADATION</button>
+      <button class="nav-btn" data-tab="games">JEUX</button>
       <button class="nav-btn" data-tab="market">RECYCLAGE</button>
       <button class="nav-btn" data-tab="leaderboard">CLASSEMENT</button>
     </nav>
@@ -135,6 +136,13 @@
       </div>
     </section>
 
+    <!-- ONGLET : JEUX -->
+    <section id="tab-games" class="tab-section">
+      <h1 class="section-title">SALLE DE JEUX</h1>
+      <p class="section-subtitle">Gagne des pièces en t'amusant : devine les cartes (3 parties par jour et par jeu) ou tente ta chance au pari.</p>
+      <div id="games-root"></div>
+    </section>
+
     <!-- ONGLET 4 : RECYCLAGE / MARCHÉ -->
     <section id="tab-market" class="tab-section">
       <h1 class="section-title">ATELIER DE RECYCLAGE</h1>
@@ -193,7 +201,8 @@
   <div id="toast" class="toast hidden"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="cards.js?v=17"></script>
-  <script src="app.js?v=17"></script>
+  <script src="cards.js?v=18"></script>
+  <script src="app.js?v=18"></script>
+  <script src="games.js?v=18"></script>
 </body>
 </html>
