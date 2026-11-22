@@ -194,47 +194,46 @@ function openPack() {
     let revealedCount = 0;
     const slots = container.querySelectorAll(".flip-slot");
 
-const SUSPENSE = { R: 500, UR: 900, SEC: 1400 };
+    const SUSPENSE = { R: 500, UR: 900, SEC: 1400 };
 
-const revealSlot = (slot, skipSuspense = false) => {
-  if (slot.classList.contains("flipped") || slot.classList.contains("charging")) return;
-  const rarity = slot.dataset.rarity;
+    const revealSlot = (slot, skipSuspense = false) => {
+      if (slot.classList.contains("flipped") || slot.classList.contains("charging")) return;
+      const rarity = slot.dataset.rarity;
 
-  const doFlip = () => {
-    slot.classList.remove("charging");
-    slot.classList.add("flipped");
-    revealedCount++;
+      const doFlip = () => {
+        slot.classList.remove("charging");
+        slot.classList.add("flipped");
+        revealedCount++;
 
-    if (SUSPENSE[rarity]) playRareEffect(slot, rarity);
-    if (rarity === "SEC") showToast("🌟 CARTE SECRÈTE DÉBLOQUÉE !");
-    else if (rarity === "UR") showToast("🔥 ULTRA RARE !");
+        if (SUSPENSE[rarity]) playRareEffect(slot, rarity);
+        if (rarity === "SEC") showToast("🌟 CARTE SECRÈTE DÉBLOQUÉE !");
+        else if (rarity === "UR") showToast("🔥 ULTRA RARE !");
 
-    if (revealedCount === slots.length) {
-      revealAllBtn.classList.add("hidden");
-      closeBtn.classList.remove("hidden");
-      hint.textContent = "Survole les cartes pour admirer les reflets holographiques !";
-    }
-  };
+        if (revealedCount === slots.length) {
+          revealAllBtn.classList.add("hidden");
+          closeBtn.classList.remove("hidden");
+          hint.textContent = "Survole les cartes pour admirer les reflets holographiques !";
+        }
+      };
 
-  if (SUSPENSE[rarity] && !skipSuspense) {
-    slot.classList.add("charging");
-    setTimeout(doFlip, SUSPENSE[rarity]);
-  } else {
-    doFlip();
-  }
-};
+      if (SUSPENSE[rarity] && !skipSuspense) {
+        slot.classList.add("charging");
+        setTimeout(doFlip, SUSPENSE[rarity]);
+      } else {
+        doFlip();
+      }
+    };
 
-slots.forEach(slot => {
-  slot.addEventListener("click", () => revealSlot(slot));
-});
+    slots.forEach(slot => {
+      slot.addEventListener("click", () => revealSlot(slot));
+    });
 
-revealAllBtn.onclick = () => {
-  slots.forEach((slot, i) => {
-    setTimeout(() => revealSlot(slot, true), i * 140);
-  });
-};
+    revealAllBtn.onclick = () => {
+      slots.forEach((slot, i) => {
+        setTimeout(() => revealSlot(slot, true), i * 140);
+      });
+    };
 
-    attachHoloListeners(container);
     modal.classList.remove("hidden");
   }, 520);
 }
@@ -302,7 +301,6 @@ document.getElementById("btn-grade-card").addEventListener("click", () => {
 
   const zone = document.getElementById("grading-result-zone");
   zone.innerHTML = renderSlabHTML(gradedObj);
-  attachHoloListeners(zone);
   showToast(isBlackLabel ? "🌟 INCROYABLE ! BLACK LABEL 10 !" : `🏆 Carte gradée ${grade}/10 !`);
 });
 
@@ -379,26 +377,53 @@ function renderSlabHTML(slab) {
   `;
 }
 
-function attachHoloListeners(root = document) {
-  root.querySelectorAll(".tcg-card").forEach(card => {
-    card.addEventListener("mousemove", e => {
-      const rect = card.getBoundingClientRect();
-      const x = ((e.clientX - rect.left) / rect.width) * 100;
-      const y = ((e.clientY - rect.top) / rect.height) * 100;
-      card.style.setProperty("--mx", `${x}%`);
-      card.style.setProperty("--my", `${y}%`);
-      const rotY = ((x - 50) / 50) * 10;
-      const rotX = ((50 - y) / 50) * 10;
-      card.style.transform = `perspective(600px) rotateX(${rotX}deg) rotateY(${rotY}deg)`;
-    });
-    card.addEventListener("mouseleave", () => {
-      card.style.transform = "perspective(600px) rotateX(0) rotateY(0)";
-    });
-  });
+/* --- EFFET HOLOGRAPHIQUE (un seul écouteur pour toutes les cartes) --- */
+document.addEventListener("mousemove", e => {
+  const card = e.target.closest && e.target.closest(".tcg-card");
+  if (!card) return;
+  const rect = card.getBoundingClientRect();
+  const x = ((e.clientX - rect.left) / rect.width) * 100;
+  const y = ((e.clientY - rect.top) / rect.height) * 100;
+  card.style.setProperty("--mx", `${x}%`);
+  card.style.setProperty("--my", `${y}%`);
+  const rotY = ((x - 50) / 50) * 10;
+  const rotX = ((50 - y) / 50) * 10;
+  card.style.transform = `perspective(600px) rotateX(${rotX}deg) rotateY(${rotY}deg)`;
+});
+
+document.addEventListener("mouseout", e => {
+  const card = e.target.closest && e.target.closest(".tcg-card");
+  if (card && !card.contains(e.relatedTarget)) {
+    card.style.transform = "perspective(600px) rotateX(0) rotateY(0)";
+  }
+});
+
+/* --- SÉLECTEUR D'ÉDITION --- */
+function renderEditionPicker() {
+  if (!EDITIONS[state.edition]) state.edition = "E1";
+
+  const picker = document.getElementById("edition-picker");
+  picker.innerHTML = Object.entries(EDITIONS).map(([id, ed]) =>
+    `<button class="edition-btn ${state.edition === id ? "active" : ""}" data-ed="${id}">${ed.tag}</button>`
+  ).join("");
+
+  const ed = EDITIONS[state.edition];
+  const pack = document.getElementById("booster-pack");
+  pack.style.background = ed.gradient;
+  pack.querySelector(".booster-tag").textContent = ed.tag;
+  pack.querySelector(".booster-art h2").textContent = ed.name;
 }
+
+document.getElementById("edition-picker").addEventListener("click", e => {
+  const btn = e.target.closest(".edition-btn");
+  if (!btn || btn.dataset.ed === state.edition) return;
+  state.edition = btn.dataset.ed;
+  saveState();
+});
 
 /* --- MISE À JOUR GLOBALE DE L'INTERFACE --- */
 function updateUI() {
+  renderEditionPicker();
   document.getElementById("coins-display").textContent = state.coins;
   document.getElementById("gems-display").textContent = state.gems;
   document.getElementById("pack-count").textContent = state.packs;
@@ -409,6 +434,7 @@ function updateUI() {
   // Filtres Collection
   const rarityFilter = document.getElementById("filter-rarity").value;
   const statusFilter = document.getElementById("filter-status").value;
+  const editionFilter = document.getElementById("filter-edition").value;
 
   // Cartes gradées
   const gradedSection = document.getElementById("graded-section");
@@ -427,6 +453,7 @@ function updateUI() {
   } else {
     const filtered = CARD_DATABASE.filter(c => {
       if (rarityFilter !== "ALL" && c.rarity !== rarityFilter) return false;
+      if (editionFilter !== "ALL" && c.edition !== editionFilter) return false;
       if (statusFilter === "OWNED" && !state.collection[c.id]) return false;
       return true;
     });
@@ -438,6 +465,7 @@ function updateUI() {
 
   // Sélecteur Gradation
   const gradingSelect = document.getElementById("grading-select");
+  const previousGrading = gradingSelect.value;
   const ownedIds = Object.keys(state.collection);
   gradingSelect.innerHTML = ownedIds.length
     ? ownedIds.map(id => {
@@ -445,6 +473,7 @@ function updateUI() {
         return `<option value="${id}">#${c.id} - ${c.name} (${c.rarity}) [×${state.collection[id]}]</option>`;
       }).join("")
     : `<option value="">Aucune carte disponible</option>`;
+  if (previousGrading && state.collection[previousGrading]) gradingSelect.value = previousGrading;
 
   // Grille Recyclage
   const recycleGrid = document.getElementById("recycle-grid");
@@ -457,11 +486,11 @@ function updateUI() {
     });
   }).join("") || "<p>Aucune carte à recycler.</p>";
 
-  attachHoloListeners();
 }
 
 document.getElementById("filter-rarity").addEventListener("change", updateUI);
 document.getElementById("filter-status").addEventListener("change", updateUI);
+document.getElementById("filter-edition").addEventListener("change", updateUI);
 
 /* --- EXPORT / IMPORT SAUVEGARDE --- */
 document.getElementById("btn-export").addEventListener("click", () => {
