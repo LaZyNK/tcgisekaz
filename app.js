@@ -73,18 +73,13 @@ function formatDuration(ms) {
 }
 
 /* --- TIRAGE ET OUVERTURE DE BOOSTER (1 PAR 1) --- */
-function rollCard(minRarity = null) {
-  const pool = minRarity
-    ? CARD_DATABASE.filter(c => ["R", "UR", "SEC"].includes(c.rarity))
-    : CARD_DATABASE;
+function rollCard(minRarity = null, edition = state.edition) {
+  let pool = CARD_DATABASE.filter(c => c.edition === edition);
+  if (minRarity) pool = pool.filter(c => ["R", "UR", "SEC"].includes(c.rarity));
 
-  const weighted = pool.map(card => ({
-    card,
-    weight: RARITY_CONFIG[card.rarity].weight
-  }));
+  const weighted = pool.map(card => ({ card, weight: RARITY_CONFIG[card.rarity].weight }));
   const totalWeight = weighted.reduce((acc, item) => acc + item.weight, 0);
   let rnd = Math.random() * totalWeight;
-
   for (const item of weighted) {
     if (rnd < item.weight) return item.card;
     rnd -= item.weight;
