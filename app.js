@@ -194,31 +194,45 @@ function openPack() {
     let revealedCount = 0;
     const slots = container.querySelectorAll(".flip-slot");
 
-    const revealSlot = (slot) => {
-      if (slot.classList.contains("flipped")) return;
-      slot.classList.add("flipped");
-      revealedCount++;
+const SUSPENSE = { R: 500, UR: 900, SEC: 1400 };
 
-      const rarity = slot.dataset.rarity;
-      if (rarity === "SEC") showToast("🌟 CARTE SECRÈTE DÉBLOQUÉE !");
-      else if (rarity === "UR") showToast("🔥 ULTRA RARE !");
+const revealSlot = (slot, skipSuspense = false) => {
+  if (slot.classList.contains("flipped") || slot.classList.contains("charging")) return;
+  const rarity = slot.dataset.rarity;
 
-      if (revealedCount === slots.length) {
-        revealAllBtn.classList.add("hidden");
-        closeBtn.classList.remove("hidden");
-        hint.textContent = "Survole les cartes pour admirer les reflets holographiques !";
-      }
-    };
+  const doFlip = () => {
+    slot.classList.remove("charging");
+    slot.classList.add("flipped");
+    revealedCount++;
 
-    slots.forEach(slot => {
-      slot.addEventListener("click", () => revealSlot(slot));
-    });
+    if (SUSPENSE[rarity]) playRareEffect(slot, rarity);
+    if (rarity === "SEC") showToast("🌟 CARTE SECRÈTE DÉBLOQUÉE !");
+    else if (rarity === "UR") showToast("🔥 ULTRA RARE !");
 
-    revealAllBtn.onclick = () => {
-      slots.forEach((slot, i) => {
-        setTimeout(() => revealSlot(slot), i * 140);
-      });
-    };
+    if (revealedCount === slots.length) {
+      revealAllBtn.classList.add("hidden");
+      closeBtn.classList.remove("hidden");
+      hint.textContent = "Survole les cartes pour admirer les reflets holographiques !";
+    }
+  };
+
+  if (SUSPENSE[rarity] && !skipSuspense) {
+    slot.classList.add("charging");
+    setTimeout(doFlip, SUSPENSE[rarity]);
+  } else {
+    doFlip();
+  }
+};
+
+slots.forEach(slot => {
+  slot.addEventListener("click", () => revealSlot(slot));
+});
+
+revealAllBtn.onclick = () => {
+  slots.forEach((slot, i) => {
+    setTimeout(() => revealSlot(slot, true), i * 140);
+  });
+};
 
     attachHoloListeners(container);
     modal.classList.remove("hidden");
