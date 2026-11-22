@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Isekaz TCG</title>
-  <link rel="stylesheet" href="style.css?v=7">
+  <title>TCG Studio - Prototype Solo</title>
+  <link rel="stylesheet" href="style.css?v=8">
 </head>
 <body>
 
   <!-- BARRE DE NAVIGATION -->
   <header class="navbar">
-    <div class="logo">ISEKAZ<span>TCG</span></div>
+    <div class="logo">TCG<span>STUDIO</span></div>
 
     <nav class="nav-pills">
       <button class="nav-btn active" data-tab="boosters">BOOSTERS</button>
@@ -111,13 +111,13 @@
     <!-- ONGLET 3 : LABORATOIRE DE GRADATION -->
     <section id="tab-grading" class="tab-section">
       <h1 class="section-title">LABORATOIRE DE GRADATION</h1>
-      <p class="section-subtitle">Envoie un exemplaire d'une carte pour obtenir une note officielle sur 10 et la sceller dans un boîtier rigide. Coût : <strong>🪙 250</strong></p>
+      <p class="section-subtitle">Chaque carte existe en <strong>12 versions</strong> : la carte normale + les notes 1 à 10 (9.5 compris). Réunis les 12 pour obtenir le <strong>cadre doré</strong> ! Chaque expertise consomme un exemplaire. Coût selon la rareté : commune 🪙 20, peu commune 🪙 35, rare 🪙 60, ultra rare 🪙 120, secrète 🪙 250.</p>
 
       <div class="grading-workbench">
         <div class="grading-selector">
           <label for="grading-select">Choisis une carte possédée (non gradée) :</label>
           <select id="grading-select"></select>
-          <button id="btn-grade-card" class="btn-primary">LANCER L'EXPERTISE (🪙 250)</button>
+          <button id="btn-grade-card" class="btn-primary">LANCER L'EXPERTISE</button>
         </div>
 
         <div id="grading-result-zone" class="grading-result-zone">
@@ -140,6 +140,18 @@
     <section id="tab-leaderboard" class="tab-section">
       <h1 class="section-title">CLASSEMENT</h1>
       <p class="section-subtitle">Les meilleurs collectionneurs. Connecte-toi avec Discord pour apparaître dans la liste.</p>
+      <div id="my-progress" class="progress-box"></div>
+
+      <details class="score-info">
+        <summary>Comment fonctionnent le score et les niveaux ?</summary>
+        <ul>
+          <li><strong>Cartes uniques :</strong> commune 1 pt, peu commune 2, rare 5, ultra rare 12, secrète 30. Une seule fois par carte, les doublons ne comptent pas.</li>
+          <li><strong>Notes de gradation :</strong> 2 pts pour chaque combinaison carte + note obtenue (1 à 10, 9.5 compris). Obtenir à nouveau une note déjà possédée ne rapporte rien.</li>
+          <li><strong>Carte complète :</strong> la carte normale + les 11 notes = cadre doré et +20 pts.</li>
+          <li><strong>Niveau :</strong> 1 + √(score ÷ 3). Niveau 2 dès 3 pts, niveau 5 à 48 pts, niveau 10 à 243 pts, niveau 20 à 1 083 pts, niveau 30 à 2 523 pts. Le maximum est de 4 143 pts (niveau 38) avec les 90 cartes complètes.</li>
+        </ul>
+      </details>
+
       <div class="leaderboard-actions">
         <button id="btn-refresh-leaderboard" class="btn-secondary">ACTUALISER</button>
       </div>
@@ -162,7 +174,7 @@
   <div id="toast" class="toast hidden"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="cards.js?v=7"></script>
-  <script src="app.js?v=7"></script>
+  <script src="cards.js?v=8"></script>
+  <script src="app.js?v=8"></script>
 </body>
 </html>

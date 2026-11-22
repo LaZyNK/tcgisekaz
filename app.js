@@ -2,17 +2,29 @@ const SAVE_KEY = "tcg_studio_save_v1";
 const FREE_PACK_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes entre chaque booster gratuit
 const PACK_COST = 150;
 const SKIP_COST = 25;
-const GRADE_COST = 250;
+
+// --- GRADATION : coût selon la rareté de la carte ---
+const GRADE_COSTS = { C: 20, UC: 35, R: 60, UR: 120, SEC: 250 };
+
+// Chaque carte existe en 12 versions : la carte normale + 11 notes
+const GRADES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 9.5, 10];
+const TOTAL_VERSIONS = GRADES.length + 1;
+// Probabilité (en %) d'obtenir chaque note : le total fait 100
+const GRADE_WEIGHTS = { 1: 4, 2: 5, 3: 7, 4: 9, 5: 12, 6: 14, 7: 14, 8: 12, 9: 10, 9.5: 8, 10: 5 };
+const GRADE_LABELS = { 10: "GEM MINT", 9.5: "MINT", 9: "MINT", 8: "NM-MT", 7: "NM", 6: "EX-MT", 5: "EX", 4: "VG-EX", 3: "VG", 2: "GOOD", 1: "POOR" };
+
+// --- SCORE & NIVEAU (identique au calcul fait côté base de données) ---
+const RARITY_POINTS = { C: 1, UC: 2, R: 5, UR: 12, SEC: 30 };
+const PAIR_POINTS = 2;        // par combinaison carte + note différente
+const COMPLETE_BONUS = 20;    // par carte complète (normale + 11 notes)
+
+const SLAB_DISPLAY_LIMIT = 60; // nombre de cartes gradées affichées dans la vitrine
 
 let state = loadState();
 
 function loadState() {
   const saved = localStorage.getItem(SAVE_KEY);
-  if (saved) {
-    const s = JSON.parse(saved);
-    if (!s.edition) s.edition = "E1"; // anciennes sauvegardes
-    return s;
-  }
+  if (saved) return migrateState(JSON.parse(saved));
   return {
     coins: 600,
     gems: 100,
@@ -22,6 +34,17 @@ function loadState() {
     collection: {}, // { "001": 3, ... }
     gradedCards: [] // [{ uid, cardId, grade, subgrades, isBlackLabel }]
   };
+}
+
+// Met à niveau les anciennes sauvegardes (édition, notes 8.5 supprimées)
+function migrateState(s) {
+  if (!s.edition) s.edition = "E1";
+  s.collection = s.collection || {};
+  s.gradedCards = s.gradedCards || [];
+  s.gradedCards.forEach(g => {
+    if (!GRADES.includes(g.grade)) g.grade = Math.max(1, Math.floor(g.grade));
+  });
+  return s;
 }
 
 function saveState() {
@@ -263,34 +286,53 @@ document.getElementById("btn-skip-timer").addEventListener("click", () => {
 });
 
 /* --- SYSTÈME DE GRADATION --- */
+function rollGrade() {
+  let r = Math.random() * 100;
+  for (const g of GRADES) {
+    r -= GRADE_WEIGHTS[g];
+    if (r < 0) return g;
+  }
+  return 10;
+}
+
+function getGradeCost(cardId) {
+  const card = CARD_DATABASE.find(c => c.id === cardId);
+  return card ? GRADE_COSTS[card.rarity] : 0;
+}
+
+function updateGradeButton() {
+  const id = document.getElementById("grading-select").value;
+  const cost = id ? getGradeCost(id) : 0;
+  document.getElementById("btn-grade-card").textContent =
+    cost ? `LANCER L'EXPERTISE (🪙 ${cost})` : "LANCER L'EXPERTISE";
+}
+
+document.getElementById("grading-select").addEventListener("change", updateGradeButton);
+
 document.getElementById("btn-grade-card").addEventListener("click", () => {
   const cardId = document.getElementById("grading-select").value;
   if (!cardId || !state.collection[cardId]) return showToast("❌ Sélectionne une carte valide.");
-  if (state.coins < GRADE_COST) return showToast("❌ Il faut 250 pièces pour grader une carte.");
+  const cost = getGradeCost(cardId);
+  if (state.coins < cost) return showToast(`❌ Il faut ${cost} pièces pour grader cette carte.`);
 
-  state.coins -= GRADE_COST;
+  const alreadyHad = new Set(state.gradedCards.filter(g => g.cardId === cardId).map(g => g.grade));
+
+  state.coins -= cost;
   state.collection[cardId] -= 1;
   if (state.collection[cardId] <= 0) delete state.collection[cardId];
 
-  // Calcul pondéré de la note sur 10
-  const roll = Math.random();
-  let grade = 8.5;
-  if (roll > 0.96) grade = 10;
-  else if (roll > 0.82) grade = 9.5;
-  else if (roll > 0.55) grade = 9;
-  else if (roll > 0.25) grade = 8.5;
-  else grade = 8;
-
+  const grade = rollGrade();
   const isBlackLabel = grade === 10 && Math.random() > 0.7;
+  const bump = chance => Math.min(10, grade + (Math.random() < chance ? 0.5 : 0));
   const subgrades = {
-    centering: isBlackLabel ? 10 : Math.min(10, grade + (Math.random() > 0.5 ? 0.5 : 0)),
+    centering: isBlackLabel ? 10 : bump(0.5),
     corners:   isBlackLabel ? 10 : grade,
-    edges:     isBlackLabel ? 10 : Math.min(10, grade + (Math.random() > 0.6 ? 0.5 : 0)),
+    edges:     isBlackLabel ? 10 : bump(0.4),
     surface:   isBlackLabel ? 10 : grade
   };
 
   const gradedObj = {
-    uid: `SLAB-${Date.now().toString().slice(-5)}`,
+    uid: `SLAB-${Date.now().toString(36).slice(-4).toUpperCase()}${Math.floor(Math.random() * 1296).toString(36).toUpperCase().padStart(2, "0")}`,
     cardId,
     grade,
     subgrades,
@@ -302,7 +344,16 @@ document.getElementById("btn-grade-card").addEventListener("click", () => {
 
   const zone = document.getElementById("grading-result-zone");
   zone.innerHTML = renderSlabHTML(gradedObj);
-  showToast(isBlackLabel ? "🌟 INCROYABLE ! BLACK LABEL 10 !" : `🏆 Carte gradée ${grade}/10 !`);
+
+  const isNew = !alreadyHad.has(grade);
+  const allGrades = new Set([...alreadyHad, grade]).size === GRADES.length;
+  const hasNormal = (state.collection[cardId] || 0) > 0;
+
+  if (allGrades && hasNormal) showToast("🏆 CARTE COMPLÈTE ! Cadre doré débloqué !");
+  else if (allGrades) showToast("✅ 11/11 notes ! Il te faut encore un exemplaire normal pour compléter la carte.");
+  else if (isBlackLabel) showToast("🌟 INCROYABLE ! BLACK LABEL 10 !");
+  else if (isNew) showToast(`🆕 Nouvelle note : ${grade}/10 !`);
+  else showToast(`Note ${grade}/10 déjà possédée pour cette carte.`);
 });
 
 /* --- RECYCLAGE --- */
@@ -341,11 +392,11 @@ function renderCardHTML(card, opts = {}) {
   const artContent = card.image ? "" : card.emoji;
 
   return `
-    <div class="tcg-card rarity-${card.rarity} ${opts.locked ? "locked" : ""}">
+    <div class="tcg-card rarity-${card.rarity} ${opts.locked ? "locked" : ""} ${opts.complete ? "complete" : ""}">
       <div class="holo-overlay"></div>
       <div class="card-header">
         <span>#${card.id}</span>
-        <span>${card.rarity}</span>
+        <span>${card.rarity}${opts.complete ? " ★ 100 %" : ""}</span>
       </div>
       <div class="card-art" style="${artStyle}">${artContent}</div>
       <div class="card-name">${opts.locked ? "???" : card.name}</div>
@@ -360,7 +411,7 @@ function renderCardHTML(card, opts = {}) {
 
 function renderSlabHTML(slab) {
   const card = CARD_DATABASE.find(c => c.id === slab.cardId);
-  const labelTitle = slab.isBlackLabel ? "BLACK LABEL 10" : (slab.grade === 10 ? "GEM MINT" : "MINT");
+  const labelTitle = slab.isBlackLabel ? "BLACK LABEL 10" : (GRADE_LABELS[slab.grade] || "GRADED");
   return `
     <div class="slab-wrapper">
       <div class="slab-label ${slab.isBlackLabel ? "black-label" : ""}">
@@ -422,9 +473,59 @@ document.getElementById("edition-picker").addEventListener("click", e => {
   saveState();
 });
 
+/* --- PROGRESSION, SCORE & NIVEAU --- */
+function buildGradeMap() {
+  const map = {};
+  for (const g of state.gradedCards) {
+    if (!map[g.cardId]) map[g.cardId] = new Set();
+    map[g.cardId].add(g.grade);
+  }
+  return map;
+}
+
+function computeScore(gradeMap) {
+  let score = 0, pairs = 0, complete = 0;
+  for (const card of CARD_DATABASE) {
+    const qty = state.collection[card.id] || 0;
+    const grades = gradeMap[card.id];
+    if (qty > 0) score += RARITY_POINTS[card.rarity];
+    if (grades) {
+      pairs += grades.size;
+      if (qty > 0 && grades.size === GRADES.length) complete++;
+    }
+  }
+  score += pairs * PAIR_POINTS + complete * COMPLETE_BONUS;
+  return { score, pairs, complete, level: 1 + Math.floor(Math.sqrt(score / 3)) };
+}
+
+function progressHTML(versions) {
+  const pct = Math.round((versions / TOTAL_VERSIONS) * 100);
+  return `<div class="card-progress" title="Versions collectées (normale + notes)">
+    <div class="card-progress-bar"><div style="width:${pct}%"></div></div>
+    <span>${versions}/${TOTAL_VERSIONS}</span>
+  </div>`;
+}
+
+function renderMyProgress(gradeMap) {
+  const box = document.getElementById("my-progress");
+  if (!box) return;
+  const { score, pairs, complete, level } = computeScore(gradeMap);
+  const floorScore = 3 * (level - 1) ** 2;
+  const nextScore = 3 * level ** 2;
+  const pct = Math.min(100, Math.round(((score - floorScore) / (nextScore - floorScore)) * 100));
+  box.innerHTML = `
+    <h3>Ma progression</h3>
+    <div class="progress-level">Niveau <strong>${level}</strong> • ${score} pts</div>
+    <div class="card-progress-bar big"><div style="width:${pct}%"></div></div>
+    <p class="progress-next">Prochain niveau à ${nextScore} pts (encore ${nextScore - score})</p>
+    <p class="progress-next">✨ ${complete} carte${complete > 1 ? "s" : ""} complète${complete > 1 ? "s" : ""} • 🎖️ ${pairs}/${CARD_DATABASE.length * GRADES.length} notes collectées</p>
+  `;
+}
+
 /* --- MISE À JOUR GLOBALE DE L'INTERFACE --- */
 function updateUI() {
   renderEditionPicker();
+  const gradeMap = buildGradeMap();
   document.getElementById("coins-display").textContent = state.coins;
   document.getElementById("gems-display").textContent = state.gems;
   document.getElementById("pack-count").textContent = state.packs;
@@ -442,7 +543,9 @@ function updateUI() {
   const gradedGrid = document.getElementById("graded-grid");
   if (state.gradedCards.length > 0 && statusFilter !== "OWNED") {
     gradedSection.classList.remove("hidden");
-    gradedGrid.innerHTML = state.gradedCards.map(renderSlabHTML).join("");
+    const hidden = state.gradedCards.length - SLAB_DISPLAY_LIMIT;
+    gradedGrid.innerHTML = state.gradedCards.slice(0, SLAB_DISPLAY_LIMIT).map(s => renderSlabHTML(s)).join("") +
+      (hidden > 0 ? `<p class="placeholder-text">… et ${hidden} autre${hidden > 1 ? "s" : ""} carte${hidden > 1 ? "s" : ""} gradée${hidden > 1 ? "s" : ""}</p>` : "");
   } else {
     gradedSection.classList.add("hidden");
   }
@@ -460,7 +563,14 @@ function updateUI() {
     });
     collectionGrid.innerHTML = filtered.map(c => {
       const qty = state.collection[c.id] || 0;
-      return renderCardHTML(c, { locked: qty === 0, countText: qty > 0 ? `×${qty}` : "Manquante" });
+      const gradesOwned = gradeMap[c.id] ? gradeMap[c.id].size : 0;
+      const versions = (qty > 0 ? 1 : 0) + gradesOwned;
+      return renderCardHTML(c, {
+        locked: qty === 0 && gradesOwned === 0,
+        complete: qty > 0 && gradesOwned === GRADES.length,
+        countText: qty > 0 ? `×${qty}` : (gradesOwned > 0 ? "Gradée" : "Manquante"),
+        extraHTML: versions > 0 ? progressHTML(versions) : ""
+      });
     }).join("");
   }
 
@@ -471,7 +581,8 @@ function updateUI() {
   gradingSelect.innerHTML = ownedIds.length
     ? ownedIds.map(id => {
         const c = CARD_DATABASE.find(x => x.id === id);
-        return `<option value="${id}">#${c.id} - ${c.name} (${c.rarity}) [×${state.collection[id]}]</option>`;
+        const notes = gradeMap[id] ? gradeMap[id].size : 0;
+        return `<option value="${id}">#${c.id} - ${c.name} (${c.rarity}) [×${state.collection[id]}] • notes ${notes}/${GRADES.length} • 🪙 ${GRADE_COSTS[c.rarity]}</option>`;
       }).join("")
     : `<option value="">Aucune carte disponible</option>`;
   if (previousGrading && state.collection[previousGrading]) gradingSelect.value = previousGrading;
@@ -487,6 +598,8 @@ function updateUI() {
     });
   }).join("") || "<p>Aucune carte à recycler.</p>";
 
+  updateGradeButton();
+  renderMyProgress(gradeMap);
 }
 
 document.getElementById("filter-rarity").addEventListener("change", updateUI);
@@ -563,8 +676,7 @@ async function syncFromCloud() {
 
   if (data) {
     // Une sauvegarde en ligne existe : on la charge
-    state = data.data;
-    if (!state.edition) state.edition = "E1";
+    state = migrateState(data.data);
     localStorage.setItem(SAVE_KEY, JSON.stringify(state));
     updateUI();
     showToast("☁️ Sauvegarde en ligne chargée !");
@@ -618,7 +730,7 @@ async function loadLeaderboard() {
     <div class="leaderboard-wrap">
       <table class="leaderboard-table">
         <thead>
-          <tr><th>#</th><th>Joueur</th><th>Niveau</th><th>Score</th><th>Cartes</th><th>Gradées</th></tr>
+          <tr><th>#</th><th>Joueur</th><th>Niveau</th><th>Score</th><th>Cartes</th><th>Complètes</th><th>Notes</th></tr>
         </thead>
         <tbody>
           ${data.map((p, i) => `
@@ -628,7 +740,8 @@ async function loadLeaderboard() {
               <td>${p.level}</td>
               <td>${p.score}</td>
               <td>${p.unique_cards}/${total}</td>
-              <td>${p.graded_count}${p.best_grade > 0 ? ` (max ${p.best_grade})` : ""}</td>
+              <td>${p.complete_cards ?? 0}</td>
+              <td>${p.graded_pairs ?? 0}/${total * GRADES.length}</td>
             </tr>`).join("")}
         </tbody>
       </table>
