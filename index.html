@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>TCG Studio - Prototype Solo</title>
-  <link rel="stylesheet" href="style.css?v=6">
+  <link rel="stylesheet" href="style.css?v=7">
 </head>
 <body>
 
@@ -17,6 +17,7 @@
       <button class="nav-btn" data-tab="collection">COLLECTION <span id="nav-count" class="badge">0/0</span></button>
       <button class="nav-btn" data-tab="grading">GRADATION</button>
       <button class="nav-btn" data-tab="market">RECYCLAGE</button>
+      <button class="nav-btn" data-tab="leaderboard">CLASSEMENT</button>
     </nav>
 
     <div class="currencies">
@@ -27,12 +28,6 @@
         <span>💎</span> <span id="gems-display">100</span>
       </div>
       <button id="btn-login" class="btn-discord">Connexion Discord</button>
-      <div class="save-controls">
-        <button id="btn-export" class="icon-btn" title="Exporter la sauvegarde (JSON)">💾</button>
-        <label class="icon-btn" title="Importer une sauvegarde (JSON)">
-          📂<input type="file" id="btn-import" accept=".json" hidden>
-        </label>
-      </div>
     </div>
   </header>
 
@@ -141,6 +136,16 @@
       <div id="recycle-grid" class="cards-grid"></div>
     </section>
 
+    <!-- ONGLET 5 : CLASSEMENT -->
+    <section id="tab-leaderboard" class="tab-section">
+      <h1 class="section-title">CLASSEMENT</h1>
+      <p class="section-subtitle">Les meilleurs collectionneurs. Connecte-toi avec Discord pour apparaître dans la liste.</p>
+      <div class="leaderboard-actions">
+        <button id="btn-refresh-leaderboard" class="btn-secondary">ACTUALISER</button>
+      </div>
+      <div id="leaderboard-list"></div>
+    </section>
+
   </main>
 
   <!-- MODAL D'OUVERTURE DE BOOSTER -->
@@ -157,7 +162,7 @@
   <div id="toast" class="toast hidden"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="cards.js?v=6"></script>
-  <script src="app.js?v=6"></script>
+  <script src="cards.js?v=7"></script>
+  <script src="app.js?v=7"></script>
 </body>
 </html>
