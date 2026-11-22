@@ -428,3 +428,92 @@ document.getElementById("btn-import").addEventListener("change", e => {
 });
 
 updateUI();
+
+/* --- COMPTE DISCORD + SAUVEGARDE EN LIGNE (SUPABASE) --- */
+const SUPABASE_URL = "https://nwvrymlezekhjxuypvgb.supabase.co";
+const SUPABASE_KEY = "COLLE_ICI_TA_PUBLISHABLE_KEY";
+const SITE_URL = "https://lazynk.github.io/tcgisekaz/";
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+let currentUser = null;
+let syncedFor = null;   // id de l'utilisateur dont la synchro initiale est faite
+let pushTimer = null;
+
+const loginBtn = document.getElementById("btn-login");
+
+function updateAuthUI() {
+  if (currentUser) {
+    const name = currentUser.user_metadata?.full_name || currentUser.user_metadata?.name || "Joueur";
+    loginBtn.textContent = `${name} • Déconnexion`;
+  } else {
+    loginBtn.textContent = "Connexion Discord";
+  }
+}
+
+loginBtn.addEventListener("click", async () => {
+  if (currentUser) {
+    await sb.auth.signOut();
+    return;
+  }
+  await sb.auth.signInWithOAuth({
+    provider: "discord",
+    options: { redirectTo: SITE_URL }
+  });
+});
+
+async function pushToCloud() {
+  if (!currentUser) return;
+  const { error } = await sb.from("saves").upsert({
+    user_id: currentUser.id,
+    data: state,
+    updated_at: new Date().toISOString()
+  });
+  if (error) console.error("Erreur sauvegarde cloud :", error);
+}
+
+function queueCloudSave() {
+  if (!currentUser || syncedFor !== currentUser.id) return;
+  clearTimeout(pushTimer);
+  pushTimer = setTimeout(pushToCloud, 1500);
+}
+
+async function syncFromCloud() {
+  if (!currentUser || syncedFor === currentUser.id) return;
+  const userId = currentUser.id;
+
+  const { data, error } = await sb
+    .from("saves")
+    .select("data")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error) {
+    console.error(error);
+    showToast("❌ Impossible de synchroniser ta sauvegarde.");
+    return;
+  }
+
+  syncedFor = userId;
+
+  if (data) {
+    // Une sauvegarde en ligne existe : on la charge
+    state = data.data;
+    localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+    updateUI();
+    showToast("☁️ Sauvegarde en ligne chargée !");
+  } else {
+    // Première connexion : on envoie la progression locale actuelle
+    await pushToCloud();
+    showToast("☁️ Ta progression a été envoyée en ligne !");
+  }
+}
+
+sb.auth.onAuthStateChange((event, session) => {
+  currentUser = session?.user ?? null;
+  updateAuthUI();
+  if (!currentUser) syncedFor = null;
+  // setTimeout : évite d'appeler Supabase directement dans ce callback
+  if (currentUser) setTimeout(syncFromCloud, 0);
+});
+
+updateAuthUI();
