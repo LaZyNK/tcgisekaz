@@ -457,3 +457,16 @@ select {
   justify-content: center;
   gap: 1rem;
 }
+
+.btn-discord {
+  background: #5865f2;
+  color: #fff;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+.btn-discord:hover { transform: scale(1.05); }
