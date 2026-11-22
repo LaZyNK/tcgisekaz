@@ -3,14 +3,21 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TCG Studio - Prototype Solo</title>
-  <link rel="stylesheet" href="style.css?v=8">
+  <title>TCG Isekaz</title>
+  <link rel="icon" type="image/png" href="assets/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=9">
 </head>
 <body>
 
+  <!-- Pétales de cerisier (décor) -->
+  <div id="sakura" class="sakura" aria-hidden="true"></div>
+
   <!-- BARRE DE NAVIGATION -->
   <header class="navbar">
-    <div class="logo">TCG<span>STUDIO</span></div>
+    <a class="logo-link" href="./" aria-label="TCG Isekaz - accueil"><img src="assets/logo.png" alt="TCG Isekaz" width="118" height="118"></a>
 
     <nav class="nav-pills">
       <button class="nav-btn active" data-tab="boosters">BOOSTERS</button>
@@ -174,7 +181,7 @@
   <div id="toast" class="toast hidden"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="cards.js?v=8"></script>
-  <script src="app.js?v=8"></script>
+  <script src="cards.js?v=9"></script>
+  <script src="app.js?v=9"></script>
 </body>
 </html>

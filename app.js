@@ -749,3 +749,19 @@ async function loadLeaderboard() {
 }
 
 document.getElementById("btn-refresh-leaderboard").addEventListener("click", loadLeaderboard);
+
+/* --- PÉTALES DE CERISIER (décor) --- */
+(function initSakura() {
+  const layer = document.getElementById("sakura");
+  if (!layer || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  for (let i = 0; i < 16; i++) {
+    const petal = document.createElement("span");
+    petal.className = "petal";
+    petal.style.setProperty("--s", `${8 + Math.random() * 10}px`);
+    petal.style.setProperty("--d", `${14 + Math.random() * 14}s`);
+    petal.style.setProperty("--delay", `${-Math.random() * 24}s`);
+    petal.style.setProperty("--sway", `${(Math.random() - 0.3) * 160}px`);
+    petal.style.left = `${Math.random() * 100}%`;
+    layer.appendChild(petal);
+  }
+})();
