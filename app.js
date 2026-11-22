@@ -8,11 +8,16 @@ let state = loadState();
 
 function loadState() {
   const saved = localStorage.getItem(SAVE_KEY);
-  if (saved) return JSON.parse(saved);
+  if (saved) {
+    const s = JSON.parse(saved);
+    if (!s.edition) s.edition = "E1"; // anciennes sauvegardes
+    return s;
+  }
   return {
     coins: 600,
     gems: 100,
     packs: 2,
+    edition: "E1",
     nextFreePackAt: Date.now() + FREE_PACK_INTERVAL_MS,
     collection: {}, // { "001": 3, ... }
     gradedCards: [] // [{ uid, cardId, grade, subgrades, isBlackLabel }]
@@ -555,6 +560,7 @@ async function syncFromCloud() {
   if (data) {
     // Une sauvegarde en ligne existe : on la charge
     state = data.data;
+    if (!state.edition) state.edition = "E1";
     localStorage.setItem(SAVE_KEY, JSON.stringify(state));
     updateUI();
     showToast("☁️ Sauvegarde en ligne chargée !");
