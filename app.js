@@ -1,6 +1,39 @@
 const SAVE_KEY = "tcg_studio_save_v1";
 const FREE_PACK_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes entre chaque booster gratuit
 const PACK_COST = 150;
+const DAILY_BASE = 100;       // bonus quotidien de base
+const DAILY_STREAK_STEP = 25; // +25 par jour consécutif
+const DAILY_STREAK_MAX = 6;   // plafonné à +150 (jour 7 et suivants = 250)
+const DISCOVERY_BONUS = { C: 5, UC: 10, R: 25, UR: 60, SEC: 150 }; // 1re fois qu'on obtient une carte
+
+function todayKey(offset = 0) {
+  const d = new Date(Date.now() + offset * 86400000);
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+function dailyAvailable() { return state.lastDaily !== todayKey(); }
+function nextDailyStreak() { return state.lastDaily === todayKey(-1) ? (state.dailyStreak || 0) + 1 : 1; }
+function dailyReward(streak) { return DAILY_BASE + DAILY_STREAK_STEP * Math.min(streak - 1, DAILY_STREAK_MAX); }
+function claimDaily() {
+  if (!dailyAvailable()) return showToast("⏳ Bonus déjà récupéré aujourd'hui, reviens demain !");
+  const streak = nextDailyStreak();
+  const gain = dailyReward(streak);
+  state.coins += gain;
+  state.lastDaily = todayKey();
+  state.dailyStreak = streak;
+  saveState();
+  showToast(`🎁 Bonus quotidien : +🪙 ${gain} (série de ${streak} jour${streak > 1 ? "s" : ""})`);
+}
+function updateDailyButton() {
+  const btn = document.getElementById("btn-daily");
+  if (!btn) return;
+  if (dailyAvailable()) {
+    btn.disabled = false;
+    btn.textContent = `🎁 BONUS QUOTIDIEN • 🪙 ${dailyReward(nextDailyStreak())}`;
+  } else {
+    btn.disabled = true;
+    btn.textContent = `✅ BONUS RÉCUPÉRÉ • série ${state.dailyStreak || 1} j • demain 🪙 ${dailyReward((state.dailyStreak || 1) + 1)}`;
+  }
+}
 const SKIP_COST = 25;
 
 // --- GRADATION : coût selon la rareté de la carte ---
@@ -179,9 +212,15 @@ function openPack() {
   const pulled = [rollCard(), rollCard(), rollCard(), rollCard(), rollCard("R")];
   // Précharge les illustrations pour qu'elles soient prêtes au retournement
   pulled.forEach(c => { if (c.image) new Image().src = c.image; });
+  let discovery = 0;
   pulled.forEach(c => {
+    if (!state.collection[c.id] && !state.gradedCards.some(g => g.cardId === c.id)) discovery += DISCOVERY_BONUS[c.rarity] || 0;
     state.collection[c.id] = (state.collection[c.id] || 0) + 1;
   });
+  if (discovery > 0) {
+    state.coins += discovery;
+    setTimeout(() => showToast(`🆕 Nouvelles cartes découvertes : +🪙 ${discovery}`), 3500);
+  }
   saveState();
 
   // Animation de déchirure du booster avant d'afficher les cartes dos tourné
@@ -287,6 +326,7 @@ document.getElementById("btn-buy-pack").addEventListener("click", () => {
   showToast("🛒 +1 Booster ajouté à ton inventaire !");
 });
 
+document.getElementById("btn-daily").addEventListener("click", claimDaily);
 document.getElementById("btn-skip-timer").addEventListener("click", () => {
   if (state.gems < SKIP_COST) return showToast("❌ Pas assez de gemmes !");
   state.gems -= SKIP_COST;
@@ -757,6 +797,7 @@ function renderMyProgress(gradeMap) {
 
 /* --- MISE À JOUR GLOBALE DE L'INTERFACE --- */
 function updateUI() {
+  updateDailyButton();
   renderEditionPicker();
   const gradeMap = buildGradeMap();
   const dupSlabs = getDuplicateSlabs();

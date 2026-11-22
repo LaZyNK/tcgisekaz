@@ -1,9 +1,9 @@
 const RARITY_CONFIG = {
-  C:   { label: "Commune",     weight: 55, recycleValue: 2 },
-  UC:  { label: "Peu Commune", weight: 28, recycleValue: 6 },
-  R:   { label: "Rare",        weight: 12, recycleValue: 20 },
-  UR:  { label: "Ultra Rare",  weight: 4,  recycleValue: 60 },
-  SEC: { label: "Secrète",     weight: 1,  recycleValue: 150 }
+  C:   { label: "Commune",     weight: 55, recycleValue: 5 },
+  UC:  { label: "Peu Commune", weight: 28, recycleValue: 12 },
+  R:   { label: "Rare",        weight: 12, recycleValue: 35 },
+  UR:  { label: "Ultra Rare",  weight: 4,  recycleValue: 90 },
+  SEC: { label: "Secrète",     weight: 1,  recycleValue: 200 }
 };
 
 const EDITIONS = {
