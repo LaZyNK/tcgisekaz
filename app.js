@@ -429,9 +429,9 @@ document.getElementById("btn-import").addEventListener("change", e => {
 
 updateUI();
 
-/* --- COMPTE DISCORD + SAUVEGARDE EN LIGNE (SUPABASE) --- */
+/* --- COMPTE DISCORD + SAUVEGARDE EN LIGNE (SUPABASE) --- */ 
 const SUPABASE_URL = "https://nwvrymlezekhjxuypvgb.supabase.co";
-const SUPABASE_KEY = "COLLE_ICI_TA_PUBLISHABLE_KEY";
+const SUPABASE_KEY = "sb_publishable_srdivyuXUgAxzjYSWAihdQ_hOSW2CRK";
 const SITE_URL = "https://lazynk.github.io/tcgisekaz/";
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
