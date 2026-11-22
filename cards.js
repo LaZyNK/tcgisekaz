@@ -15,14 +15,14 @@ const EDITIONS = {
 // Catalogue des cartes : ajoute tes visuels dans "image" (ex: "assets/carte01.png")
 const CARD_DATABASE = [
   // ===== ÉDITION 1 — ORIGINS (fantasy & forêts) =====
-  { id: "001", name: "Louveteau Astral", rarity: "C", emoji: "🐺", bg: "linear-gradient(135deg, #1e293b, #334155)", image: "", edition: "E1" },
-  { id: "002", name: "Feu Follet Sylvestre", rarity: "C", emoji: "🌿", bg: "linear-gradient(135deg, #14532d, #166534)", image: "", edition: "E1" },
-  { id: "003", name: "Golem de Basalte", rarity: "C", emoji: "🪨", bg: "linear-gradient(135deg, #3f3f46, #52525b)", image: "", edition: "E1" },
-  { id: "004", name: "Étincelle Errante", rarity: "C", emoji: "✨", bg: "linear-gradient(135deg, #713f12, #854d0e)", image: "", edition: "E1" },
-  { id: "005", name: "Sentinelle d'Acier", rarity: "UC", emoji: "🛡️", bg: "linear-gradient(135deg, #064e3b, #047857)", image: "", edition: "E1" },
-  { id: "006", name: "Chasseur Crépuscule", rarity: "UC", emoji: "🏹", bg: "linear-gradient(135deg, #1e3a8a, #1d4ed8)", image: "", edition: "E1" },
-  { id: "007", name: "Alchimiste Lunaire", rarity: "UC", emoji: "🧪", bg: "linear-gradient(135deg, #4c1d95, #6d28d9)", image: "", edition: "E1" },
-  { id: "008", name: "Chevalier du Néant", rarity: "R", emoji: "⚔️", bg: "linear-gradient(135deg, #0c4a6e, #0284c7)", image: "", edition: "E1" },
+  { id: "001", name: "Louveteau Astral", rarity: "C", emoji: "🐺", bg: "linear-gradient(135deg, #1e293b, #334155)", image: "assets/cards/001.webp", edition: "E1" },
+  { id: "002", name: "Feu Follet Sylvestre", rarity: "C", emoji: "🌿", bg: "linear-gradient(135deg, #14532d, #166534)", image: "assets/cards/002.webp", edition: "E1" },
+  { id: "003", name: "Golem de Basalte", rarity: "C", emoji: "🪨", bg: "linear-gradient(135deg, #3f3f46, #52525b)", image: "assets/cards/003.webp", edition: "E1" },
+  { id: "004", name: "Étincelle Errante", rarity: "C", emoji: "✨", bg: "linear-gradient(135deg, #713f12, #854d0e)", image: "assets/cards/004.webp", edition: "E1" },
+  { id: "005", name: "Sentinelle d'Acier", rarity: "UC", emoji: "🛡️", bg: "linear-gradient(135deg, #064e3b, #047857)", image: "assets/cards/005.webp", edition: "E1" },
+  { id: "006", name: "Chasseur Crépuscule", rarity: "UC", emoji: "🏹", bg: "linear-gradient(135deg, #1e3a8a, #1d4ed8)", image: "assets/cards/006.webp", edition: "E1" },
+  { id: "007", name: "Alchimiste Lunaire", rarity: "UC", emoji: "🧪", bg: "linear-gradient(135deg, #4c1d95, #6d28d9)", image: "assets/cards/007.webp", edition: "E1" },
+  { id: "008", name: "Chevalier du Néant", rarity: "R", emoji: "⚔️", bg: "linear-gradient(135deg, #0c4a6e, #0284c7)", image: "assets/cards/008.webp", edition: "E1" },
   { id: "009", name: "Dragon des Cendres", rarity: "R", emoji: "🐉", bg: "linear-gradient(135deg, #7f1d1d, #dc2626)", image: "", edition: "E1" },
   { id: "010", name: "Archimage Céleste", rarity: "UR", emoji: "🔮", bg: "linear-gradient(135deg, #581c87, #c026d3)", image: "", edition: "E1" },
   { id: "011", name: "Valkyrie Solaire", rarity: "UR", emoji: "🪽", bg: "linear-gradient(135deg, #7c2d12, #ea580c)", image: "", edition: "E1" },
@@ -108,6 +108,3 @@ const CARD_DATABASE = [
   { id: "089", name: "Omega, l'Esprit Machine", rarity: "UR", emoji: "🧠", bg: "linear-gradient(135deg, #0f172a, #22d3ee)", image: "", edition: "E3" },
   { id: "090", name: "Titan de l'Éclipse", rarity: "SEC", emoji: "🌑", bg: "linear-gradient(135deg, #050505, #facc15)", image: "", edition: "E3" }
 ];
-
-// Les cartes sans édition appartiennent à l'édition 1
-CARD_DATABASE.forEach(c => { c.edition = c.edition || "E1"; });

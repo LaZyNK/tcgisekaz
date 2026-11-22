@@ -168,6 +168,8 @@ function openPack() {
 
   // 4 cartes aléatoires + 1 carte garantie Rare minimum en dernière position
   const pulled = [rollCard(), rollCard(), rollCard(), rollCard(), rollCard("R")];
+  // Précharge les illustrations pour qu'elles soient prêtes au retournement
+  pulled.forEach(c => { if (c.image) new Image().src = c.image; });
   pulled.forEach(c => {
     state.collection[c.id] = (state.collection[c.id] || 0) + 1;
   });
@@ -386,10 +388,12 @@ document.getElementById("btn-recycle-all").addEventListener("click", () => {
 
 /* --- RENDU VISUEL DES CARTES & SLABS --- */
 function renderCardHTML(card, opts = {}) {
-  const artStyle = card.image
+  // Carte non possédée : l'illustration reste cachée (point d'interrogation)
+  const showArt = card.image && !opts.locked;
+  const artStyle = showArt
     ? `background-image: url('${card.image}')`
     : `background: ${card.bg}`;
-  const artContent = card.image ? "" : card.emoji;
+  const artContent = showArt ? "" : (opts.locked ? "?" : card.emoji);
 
   return `
     <div class="tcg-card rarity-${card.rarity} ${opts.locked ? "locked" : ""} ${opts.complete ? "complete" : ""}">
