@@ -46,6 +46,7 @@ document.querySelectorAll(".nav-btn").forEach(btn => {
     btn.classList.add("active");
     document.getElementById(`tab-${btn.dataset.tab}`).classList.add("active");
     updateUI();
+    if (btn.dataset.tab === "leaderboard") loadLeaderboard();
   });
 });
 
@@ -492,27 +493,6 @@ document.getElementById("filter-rarity").addEventListener("change", updateUI);
 document.getElementById("filter-status").addEventListener("change", updateUI);
 document.getElementById("filter-edition").addEventListener("change", updateUI);
 
-/* --- EXPORT / IMPORT SAUVEGARDE --- */
-document.getElementById("btn-export").addEventListener("click", () => {
-  const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "sauvegarde-tcg.json";
-  a.click();
-});
-
-document.getElementById("btn-import").addEventListener("change", e => {
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = ev => {
-    state = JSON.parse(ev.target.result);
-    saveState();
-    showToast("✅ Sauvegarde restaurée !");
-  };
-  reader.readAsText(file);
-});
-
 updateUI();
 
 /* --- COMPTE DISCORD + SAUVEGARDE EN LIGNE (SUPABASE) --- */ 
@@ -604,3 +584,55 @@ sb.auth.onAuthStateChange((event, session) => {
 });
 
 updateAuthUI();
+
+/* --- CLASSEMENT --- */
+function escapeHTML(str) {
+  return String(str ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+async function loadLeaderboard() {
+  const list = document.getElementById("leaderboard-list");
+  list.innerHTML = `<p class="placeholder-text">Chargement…</p>`;
+
+  const { data, error } = await sb
+    .from("leaderboard")
+    .select("*")
+    .order("score", { ascending: false })
+    .limit(50);
+
+  if (error) {
+    console.error("Erreur classement :", error);
+    list.innerHTML = `<p class="placeholder-text">❌ Impossible de charger le classement.</p>`;
+    return;
+  }
+  if (!data.length) {
+    list.innerHTML = `<p class="placeholder-text">Aucun joueur classé pour l'instant. Connecte-toi avec Discord pour apparaître ici !</p>`;
+    return;
+  }
+
+  const total = CARD_DATABASE.length;
+  const myName = currentUser?.user_metadata?.full_name || currentUser?.user_metadata?.name || null;
+  const medals = ["🥇", "🥈", "🥉"];
+
+  list.innerHTML = `
+    <div class="leaderboard-wrap">
+      <table class="leaderboard-table">
+        <thead>
+          <tr><th>#</th><th>Joueur</th><th>Niveau</th><th>Score</th><th>Cartes</th><th>Gradées</th></tr>
+        </thead>
+        <tbody>
+          ${data.map((p, i) => `
+            <tr class="${p.username === myName ? "me" : ""}">
+              <td class="rank-cell">${medals[i] || i + 1}</td>
+              <td>${escapeHTML(p.username)}</td>
+              <td>${p.level}</td>
+              <td>${p.score}</td>
+              <td>${p.unique_cards}/${total}</td>
+              <td>${p.graded_count}${p.best_grade > 0 ? ` (max ${p.best_grade})` : ""}</td>
+            </tr>`).join("")}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+document.getElementById("btn-refresh-leaderboard").addEventListener("click", loadLeaderboard);
