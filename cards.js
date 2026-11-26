@@ -53,7 +53,7 @@ const CARD_DATABASE = [
   { id: "035", name: "Phoque Givré", rarity: "C", emoji: "🦭", bg: "linear-gradient(135deg, #0f172a, #475569)", image: "assets/cards/035.webp", edition: "E2" },
   { id: "036", name: "Pingouin Glissant", rarity: "C", emoji: "🐧", bg: "linear-gradient(135deg, #1e293b, #334155)", image: "assets/cards/036.webp", edition: "E2" },
   { id: "037", name: "Coquillage Chantant", rarity: "C", emoji: "🐚", bg: "linear-gradient(135deg, #831843, #ec4899)", image: "assets/cards/037.webp", edition: "E2" },
-  { id: "038", name: "Bulle Vivante", rarity: "C", emoji: "🫧", bg: "linear-gradient(135deg, #0c4a6e, #0284c7)", image: "", edition: "E2" },
+  { id: "038", name: "Bulle Vivante", rarity: "C", emoji: "🫧", bg: "linear-gradient(135deg, #0c4a6e, #0284c7)", image: "assets/cards/038.webp", edition: "E2" },
   { id: "039", name: "Loutre Pilleuse", rarity: "C", emoji: "🦦", bg: "linear-gradient(135deg, #78350f, #f59e0b)", image: "assets/cards/039.webp", edition: "E2" },
   { id: "040", name: "Flocon Errant", rarity: "C", emoji: "❄️", bg: "linear-gradient(135deg, #164e63, #67e8f9)", image: "assets/cards/040.webp", edition: "E2" },
   { id: "041", name: "Goutte Ancestrale", rarity: "C", emoji: "💧", bg: "linear-gradient(135deg, #1e3a8a, #1d4ed8)", image: "assets/cards/041.webp", edition: "E2" },
