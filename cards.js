@@ -122,7 +122,7 @@ const CARD_DATABASE = [
   { id: "100", name: "Mage de l'Explosion", rarity: "R", emoji: "⭐", bg: "linear-gradient(135deg, #7f1d1d, #facc15)", image: "assets/cards/100.webp", edition: "E4", series: "ISEKAZ" },
   { id: "101", name: "Roi des Démons Majestueux", rarity: "SEC", emoji: "💎", bg: "linear-gradient(135deg, #1c1917, #fde047)", image: "assets/cards/101.webp", edition: "E4", series: "ISEKAZ", handmade: true },
   { id: "102", name: "Maître du Chaos Éternel", rarity: "SEC", emoji: "💎", bg: "linear-gradient(135deg, #1c1917, #fde047)", image: "assets/cards/102.webp", edition: "E4", series: "ISEKAZ", handmade: true },
-  { id: "103", name: "Serpent de l'Abîme Infini", rarity: "SEC", emoji: "💎", bg: "linear-gradient(135deg, #1c1917, #fde047)", image: "", edition: "E4", series: "ISEKAZ", handmade: true },
-  { id: "104", name: "Duo de Destruction", rarity: "SEC", emoji: "💎", bg: "linear-gradient(135deg, #1c1917, #fde047)", image: "", edition: "E4", series: "ISEKAZ", handmade: true },
-  { id: "105", name: "Perforation des Mondes", rarity: "SEC", emoji: "💎", bg: "linear-gradient(135deg, #1c1917, #fde047)", image: "", edition: "E4", series: "ISEKAZ", handmade: true }
+  { id: "103", name: "Serpent de l'Abîme Infini", rarity: "SEC", emoji: "💎", bg: "linear-gradient(135deg, #1c1917, #fde047)", image: "assets/cards/103.webp", edition: "E4", series: "ISEKAZ", handmade: true },
+  { id: "104", name: "Duo de Destruction", rarity: "SEC", emoji: "💎", bg: "linear-gradient(135deg, #1c1917, #fde047)", image: "assets/cards/104.webp", edition: "E4", series: "ISEKAZ", handmade: true },
+  { id: "105", name: "Perforation des Mondes", rarity: "SEC", emoji: "💎", bg: "linear-gradient(135deg, #1c1917, #fde047)", image: "assets/cards/105.webp", edition: "E4", series: "ISEKAZ", handmade: true }
 ];
