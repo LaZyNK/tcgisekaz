@@ -33,14 +33,13 @@ function gShuffle(arr) {
 }
 
 /* ---------- Bonus de première connexion Discord ---------- */
-function grantDiscordBonus() {
-  if (!currentUser || state.discordBonus) return;
-  state.discordBonus = true;
-  state.discordGems = true;
-  state.coins += DISCORD_BONUS;
-  state.gems += DISCORD_GEMS;
-  saveState();
-  showToast(`🎉 Bienvenue ! Bonus de connexion Discord : +🪙 ${DISCORD_BONUS} +💎 ${DISCORD_GEMS}`);
+async function grantDiscordBonus() {
+  if (!currentUser || state.discordBonus || !serverMode()) return;
+  const r = await api("claim_discord_bonus", {}, { silent: true });
+  if (r.ok && r.result && r.result.status === "ok") {
+    showToast(`🎉 Bienvenue ! Bonus de connexion Discord : +🪙 ${DISCORD_BONUS} +💎 ${DISCORD_GEMS}`);
+  }
+  renderBonusCard();
 }
 
 /* ---------- Parties du jour ---------- */
@@ -96,7 +95,19 @@ async function paintRound() {
 }
 
 /* ---------- Manche Pixel / Zoom ---------- */
-function startRound(mode) {
+let gBusy = false;
+async function startRound(mode) {
+  if (gBusy || blocked()) return;
+  if (serverMode()) {
+    if (playsLeft(mode) <= 0) return showToast("⏳ Plus de parties aujourd'hui pour ce jeu, reviens demain !");
+    gBusy = true;
+    const r = await api("game_start", { mode });
+    gBusy = false;
+    if (!r.ok) return renderGames();
+    const q = r.result;
+    gRound = { mode, card: CARD_BY_ID[q.target], options: q.options, params: q.params, reward: q.reward, answered: false, picked: null, roundId: q.roundId };
+    return renderGames();
+  }
   if (playsLeft(mode) <= 0) return showToast("⏳ Plus de parties aujourd'hui pour ce jeu, reviens demain !");
   const pool = CARD_DATABASE.filter(c => c.image);
   if (pool.length < 4) return showToast("❌ Pas assez de cartes illustrées pour jouer.");
@@ -117,8 +128,20 @@ function startRound(mode) {
   saveState();
   renderGames();
 }
-function answerRound(cardId) {
-  if (!gRound || gRound.answered) return;
+async function answerRound(cardId) {
+  if (!gRound || gRound.answered || gBusy) return;
+  if (gRound.roundId) {
+    gBusy = true;
+    const r = await api("game_answer", { mode: gRound.mode, roundId: gRound.roundId, cardId });
+    gBusy = false;
+    if (!r.ok) { if (r.error === "no_round") gRound = null; return renderGames(); }
+    const res = r.result;
+    gRound.answered = true; gRound.picked = cardId;
+    gRound.card = CARD_BY_ID[res.correctId] || gRound.card;
+    if (res.ok) showToast(`✅ Bravo ! C'était bien ${res.name} : +🪙 ${res.reward}${res.gems ? ` +💎 ${res.gems}` : ""}`);
+    else showToast(`❌ Raté ! C'était ${res.name}.`);
+    return renderGames();
+  }
   gRound.answered = true;
   gRound.picked = cardId;
   const ok = cardId === gRound.card.id;
@@ -139,8 +162,19 @@ function answerRound(cardId) {
 }
 
 /* ---------- Pari des 3 cartes ---------- */
-function startBet(index) {
-  if (gBetState && !gBetState.done) return;
+async function startBet(index) {
+  if (gBetState && !gBetState.done || gBusy || blocked()) return;
+  if (serverMode()) {
+    if (state.coins < gBet) return showToast("❌ Pas assez de pièces pour cette mise.");
+    gBusy = true;
+    const r = await api("bet", { bet: gBet, pick: index });
+    gBusy = false;
+    if (!r.ok) return renderGames();
+    const b = r.result;
+    gBetState = { bet: b.bet, win: b.win, picked: b.picked, done: true, gain: b.gain };
+    renderGames();
+    return showToast(b.gain ? `🍀 Gagné ! +🪙 ${b.gain} (mise ${b.bet})` : `💸 Perdu… −🪙 ${b.bet}`);
+  }
   if (state.coins < gBet) return showToast("❌ Pas assez de pièces pour cette mise.");
   state.coins -= gBet;
   const win = Math.floor(Math.random() * 3);
@@ -267,16 +301,15 @@ function renderBonusCard() {
 async function claimServerBonus() {
   if (!currentUser) return showToast("🔐 Connecte-toi d'abord avec Discord.");
   if (state.serverBonus || serverClaimBusy) return;
+  if (blocked()) return;
   serverClaimBusy = true; renderBonusCard();
   try {
-    const { data, error } = await sb.functions.invoke("claim-server-bonus");
-    if (error || !data) { showToast("❌ Bonus indisponible pour le moment, réessaie plus tard."); return; }
+    const resp = await api("claim_server_bonus", {}, { silent: true });
+    const data = resp.ok ? resp.result : (resp.message ? { status: "error", message: resp.message } : null);
+    if (!data) { showToast("❌ Bonus indisponible pour le moment, réessaie plus tard."); return; }
     if (data.status === "ok") {
-      state.serverBonus = true; state.serverGems = true;
-      state.coins += SERVER_BONUS; state.gems += SERVER_GEMS; saveState();
       showToast(`🎉 Merci d'avoir rejoint le serveur : +🪙 ${SERVER_BONUS} +💎 ${SERVER_GEMS}`);
     } else if (data.status === "already") {
-      state.serverBonus = true; saveState();
       showToast("✅ Ce compte Discord a déjà récupéré ce bonus.");
     } else if (data.status === "not_member") {
       showToast("🤔 Tu n'as pas encore rejoint le serveur. Clique sur REJOINDRE puis réessaie.");
@@ -298,6 +331,7 @@ renderBonusCard();
 
 /* ---------- Diamants : cartes complètes + rattrapage des anciens bonus ---------- */
 function awardCompleteGems() {
+  if (currentUser) return;    // connecté : c'est le serveur qui accorde ces diamants
   if (!state.completeGems) state.completeGems = {};
   const gm = buildGradeMap();
   let n = 0;
@@ -317,6 +351,7 @@ function awardCompleteGems() {
 
 // Les joueurs qui avaient déjà pris les bonus Discord reçoivent aussi les diamants, une seule fois
 function grantRetroGems() {
+  if (currentUser) return;    // connecté : rattrapage fait par le serveur
   let gems = 0;
   if (state.discordBonus && !state.discordGems) { state.discordGems = true; gems += DISCORD_GEMS; }
   if (state.serverBonus && !state.serverGems) { state.serverGems = true; gems += SERVER_GEMS; }

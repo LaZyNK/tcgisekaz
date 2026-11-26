@@ -10,14 +10,60 @@ const DAILY_STREAK_STEP = 25; // +25 par jour consécutif
 const DAILY_STREAK_MAX = 6;   // plafonné à +150 (jour 7 et suivants = 250)
 const DISCOVERY_BONUS = { C: 5, UC: 10, R: 25, UR: 60, SEC: 150 }; // 1re fois qu'on obtient une carte
 
-function todayKey(offset = 0) {
-  const d = new Date(Date.now() + offset * 86400000);
-  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+/* --- HORLOGE & JOUR (fuseau de Paris, aligné sur le serveur) --- */
+let clockSkew = 0;                       // décalage entre l'horloge du serveur et celle de l'appareil
+const nowMs = () => Date.now() + clockSkew;
+const PARIS_DAY = new Intl.DateTimeFormat("fr-CA", { timeZone: "Europe/Paris", year: "numeric", month: "2-digit", day: "2-digit" });
+function todayKey(offset = 0) { return PARIS_DAY.format(new Date(nowMs() + offset * 86400000)); }
+
+/* --- MODE SERVEUR : connecté + synchronisé = toutes les règles sont appliquées par la fonction "game" --- */
+function serverMode() { return !!currentUser && syncedFor === currentUser.id; }
+function blocked() {                    // connecté mais pas encore synchronisé : on attend
+  if (currentUser && !serverMode()) { showToast("☁️ Synchronisation en cours, un instant…"); return true; }
+  return false;
+}
+function applyServer(r) {
+  if (!r || !r.state) return;
+  if (r.now) clockSkew = r.now - Date.now();
+  const edition = state.edition;
+  state = migrateState(r.state);
+  if (EDITIONS[edition]) state.edition = edition;   // l'édition affichée reste un choix local
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); } catch (_) {}
+  updateUI();
+  if (r.completeGems > 0) setTimeout(() => showToast(`💎 Carte complète : +💎 ${r.completeGems}`), 400);
+}
+let apiChain = Promise.resolve();       // les appels partent un par un (pas de double clic qui double un gain)
+function api(action, params = {}, opts = {}) {
+  const run = async () => {
+    try {
+      const { data, error } = await sb.functions.invoke("game", { body: { action, ...params } });
+      if (error || !data) {
+        if (!opts.silent) showToast("❌ Serveur indisponible, réessaie dans un instant.");
+        return { ok: false, error: "network" };
+      }
+      applyServer(data);
+      if (!data.ok && data.message && !opts.silent) showToast("❌ " + data.message);
+      return data;
+    } catch (e) {
+      console.error(e);
+      if (!opts.silent) showToast("❌ Serveur indisponible, réessaie dans un instant.");
+      return { ok: false, error: "network" };
+    }
+  };
+  const p = apiChain.then(run, run);
+  apiChain = p.catch(() => {});
+  return p;
 }
 function dailyAvailable() { return state.lastDaily !== todayKey(); }
 function nextDailyStreak() { return state.lastDaily === todayKey(-1) ? (state.dailyStreak || 0) + 1 : 1; }
 function dailyReward(streak) { return DAILY_BASE + DAILY_STREAK_STEP * Math.min(streak - 1, DAILY_STREAK_MAX); }
-function claimDaily() {
+async function claimDaily() {
+  if (blocked()) return;
+  if (serverMode()) {
+    const r = await api("claim_daily");
+    if (r.ok) showToast(`🎁 Bonus quotidien : +🪙 ${r.result.gain} +💎 ${r.result.gems} (série de ${r.result.streak} jour${r.result.streak > 1 ? "s" : ""})`);
+    return;
+  }
   if (!dailyAvailable()) return showToast("⏳ Bonus déjà récupéré aujourd'hui, reviens demain !");
   const streak = nextDailyStreak();
   const gain = dailyReward(streak);
@@ -72,6 +118,9 @@ let state = loadState();
 function loadState() {
   const saved = localStorage.getItem(SAVE_KEY);
   if (saved) return migrateState(JSON.parse(saved));
+  return newGuestState();
+}
+function newGuestState() {
   return {
     coins: 600,
     gems: 100,
@@ -95,9 +144,8 @@ function migrateState(s) {
 }
 
 function saveState() {
-  if (typeof awardCompleteGems === "function") awardCompleteGems();
+  if (!currentUser && typeof awardCompleteGems === "function") awardCompleteGems();   // mode invité uniquement
   localStorage.setItem(SAVE_KEY, JSON.stringify(state));
-  queueCloudSave();
   updateUI();
 }
 
@@ -122,13 +170,21 @@ document.querySelectorAll(".nav-btn").forEach(btn => {
 });
 
 /* --- TIMER BOOSTER GRATUIT --- */
+let timerCalledAt = 0;
 setInterval(() => {
-  const now = Date.now();
+  const now = nowMs();
   if (now >= state.nextFreePackAt) {
-    state.packs += 1;
-    state.nextFreePackAt = now + FREE_PACK_INTERVAL_MS;
-    saveState();
-    showToast("🎁 Un booster gratuit vient d'arriver !");
+    if (serverMode()) {
+      if (Date.now() - timerCalledAt > 5000) {
+        timerCalledAt = Date.now();
+        api("free_pack", {}, { silent: true }).then(r => { if (r.ok && r.result && r.result.granted) showToast("🎁 Un booster gratuit vient d'arriver !"); });
+      }
+    } else if (!currentUser) {
+      state.packs += 1;
+      state.nextFreePackAt = now + FREE_PACK_INTERVAL_MS;
+      saveState();
+      showToast("🎁 Un booster gratuit vient d'arriver !");
+    }
   }
   const remaining = Math.max(0, state.nextFreePackAt - now);
   const pct = 100 - (remaining / FREE_PACK_INTERVAL_MS) * 100;
@@ -214,19 +270,28 @@ function playRareEffect(slot, rarity) {
 
 let isOpeningPack = false;
 
-function openPack() {
-  if (isOpeningPack) return;
+async function openPack() {
+  if (isOpeningPack || blocked()) return;
   const isIsekaz = state.edition === "E4";
-  if (isIsekaz) {
-    if (state.gems < ISEKAZ_COST) return showToast(`❌ Il faut 💎 ${ISEKAZ_COST} pour ouvrir un booster Isekaz.`);
-  } else if (state.packs <= 0) {
-    showToast("❌ Aucun booster disponible ! Achètes-en un ou attends le timer.");
-    return;
+  if (!serverMode()) {
+    if (isIsekaz) {
+      if (state.gems < ISEKAZ_COST) return showToast(`❌ Il faut 💎 ${ISEKAZ_COST} pour ouvrir un booster Isekaz.`);
+    } else if (state.packs <= 0) {
+      showToast("❌ Aucun booster disponible ! Achètes-en un ou attends le timer.");
+      return;
+    }
   }
 
   isOpeningPack = true;
-  let pulled;
-  if (isIsekaz) {
+  let pulled, discovery = 0;
+  if (serverMode()) {
+    // Le tirage est fait par le serveur ; le navigateur n'affiche que le résultat
+    const r = await api("open_pack", { edition: state.edition });
+    if (!r.ok) { isOpeningPack = false; return; }
+    pulled = r.result.cards.map(id => CARD_BY_ID[id]).filter(Boolean);
+    discovery = r.result.discovery || 0;
+    pulled.forEach(c => { if (c.image) new Image().src = c.image; });
+  } else if (isIsekaz) {
     state.gems -= ISEKAZ_COST;
     // 9 cartes tirées dans les 3 éditions + 1 carte exclusive Isekaz (rare minimum) en dernière position
     pulled = [];
@@ -238,17 +303,16 @@ function openPack() {
     pulled = [rollCard(), rollCard(), rollCard(), rollCard(), rollCard("R")];
   }
   // Précharge les illustrations pour qu'elles soient prêtes au retournement
-  pulled.forEach(c => { if (c.image) new Image().src = c.image; });
-  let discovery = 0;
-  pulled.forEach(c => {
-    if (!state.collection[c.id] && !state.gradedCards.some(g => g.cardId === c.id)) discovery += DISCOVERY_BONUS[c.rarity] || 0;
-    state.collection[c.id] = (state.collection[c.id] || 0) + 1;
-  });
-  if (discovery > 0) {
-    state.coins += discovery;
-    setTimeout(() => showToast(`🆕 Nouvelles cartes découvertes : +🪙 ${discovery}`), 3500);
+  if (!serverMode()) {
+    pulled.forEach(c => { if (c.image) new Image().src = c.image; });
+    pulled.forEach(c => {
+      if (!state.collection[c.id] && !state.gradedCards.some(g => g.cardId === c.id)) discovery += DISCOVERY_BONUS[c.rarity] || 0;
+      state.collection[c.id] = (state.collection[c.id] || 0) + 1;
+    });
+    if (discovery > 0) state.coins += discovery;
+    saveState();
   }
-  saveState();
+  if (discovery > 0) setTimeout(() => showToast(`🆕 Nouvelles cartes découvertes : +🪙 ${discovery}`), 3500);
 
   // Ouverture interactive : on déchire le booster à la main, puis les cartes se dévoilent une par une
   isOpeningPack = false;
@@ -457,7 +521,9 @@ document.getElementById("btn-close-modal").addEventListener("click", () => {
   document.getElementById("pack-modal").classList.add("hidden");
 });
 
-document.getElementById("btn-buy-pack").addEventListener("click", () => {
+document.getElementById("btn-buy-pack").addEventListener("click", async () => {
+  if (blocked()) return;
+  if (serverMode()) { const r = await api("buy_pack"); if (r.ok) showToast("🛒 +1 Booster ajouté à ton inventaire !"); return; }
   if (state.coins < PACK_COST) return showToast("❌ Pas assez de pièces !");
   state.coins -= PACK_COST;
   state.packs += 1;
@@ -466,7 +532,9 @@ document.getElementById("btn-buy-pack").addEventListener("click", () => {
 });
 
 document.getElementById("btn-daily").addEventListener("click", claimDaily);
-document.getElementById("btn-skip-timer").addEventListener("click", () => {
+document.getElementById("btn-skip-timer").addEventListener("click", async () => {
+  if (blocked()) return;
+  if (serverMode()) { const r = await api("skip_timer"); if (r.ok) showToast("⚡ Booster instantané récupéré !"); return; }
   if (state.gems < SKIP_COST) return showToast("❌ Pas assez de gemmes !");
   state.gems -= SKIP_COST;
   state.packs += 1;
@@ -499,9 +567,15 @@ function updateGradeButton() {
 
 document.getElementById("grading-select").addEventListener("change", updateGradeButton);
 
-document.getElementById("btn-grade-card").addEventListener("click", () => {
+document.getElementById("btn-grade-card").addEventListener("click", async () => {
+  if (blocked()) return;
   const cardId = document.getElementById("grading-select").value;
   if (!cardId || !state.collection[cardId]) return showToast("❌ Sélectionne une carte valide.");
+  if (serverMode()) {
+    const r = await api("grade", { cardId });
+    if (r.ok) showGradeResult(r.result.slab, r.result.isNew, r.result.allGrades, r.result.hasNormal);
+    return;
+  }
   const cost = getGradeCost(cardId);
   if (state.coins < cost) return showToast(`❌ Il faut ${cost} pièces pour grader cette carte.`);
 
@@ -531,23 +605,27 @@ document.getElementById("btn-grade-card").addEventListener("click", () => {
 
   state.gradedCards.unshift(gradedObj);
   saveState();
+  showGradeResult(gradedObj, !alreadyHad.has(grade), new Set([...alreadyHad, grade]).size === GRADES.length, (state.collection[cardId] || 0) > 0);
+});
 
-  const zone = document.getElementById("grading-result-zone");
-  zone.innerHTML = renderSlabHTML(gradedObj);
-
-  const isNew = !alreadyHad.has(grade);
-  const allGrades = new Set([...alreadyHad, grade]).size === GRADES.length;
-  const hasNormal = (state.collection[cardId] || 0) > 0;
-
+function showGradeResult(gradedObj, isNew, allGrades, hasNormal) {
+  const grade = gradedObj.grade, isBlackLabel = gradedObj.isBlackLabel;
+  document.getElementById("grading-result-zone").innerHTML = renderSlabHTML(gradedObj);
   if (allGrades && hasNormal) showToast("🏆 CARTE COMPLÈTE ! Cadre doré débloqué !");
   else if (allGrades) showToast("✅ 11/11 notes ! Il te faut encore un exemplaire normal pour compléter la carte.");
   else if (isBlackLabel) showToast("🌟 INCROYABLE ! BLACK LABEL 10 !");
   else if (isNew) showToast(`🆕 Nouvelle note : ${grade}/10 !`);
   else showToast(`Note ${grade}/10 déjà possédée pour cette carte.`);
-});
+}
 
 /* --- RECYCLAGE --- */
-function recycleCard(cardId, count = 1) {
+async function recycleCard(cardId, count = 1, dupsOnly = false) {
+  if (blocked()) return;
+  if (serverMode()) {
+    const r = await api("recycle", { kind: "normal", cardId, count, dupsOnly });
+    if (r.ok) showToast(`♻️ +${r.result.gain} pièces récupérées !`);
+    return;
+  }
   const card = CARD_BY_ID[cardId];
   if (!card || (state.collection[cardId] || 0) < count) return;
   state.collection[cardId] -= count;
@@ -558,7 +636,13 @@ function recycleCard(cardId, count = 1) {
   showToast(`♻️ +${gain} pièces récupérées !`);
 }
 
-document.getElementById("btn-recycle-all").addEventListener("click", () => {
+document.getElementById("btn-recycle-all").addEventListener("click", async () => {
+  if (blocked()) return;
+  if (serverMode()) {
+    const r = await api("recycle", { kind: "all_normal" });
+    if (r.ok) showToast(`♻️ Tous les doublons recyclés : +${r.result.gain} pièces !`);
+    return;
+  }
   let totalGain = 0;
   for (const [id, qty] of Object.entries(state.collection)) {
     if (qty > 1) {
@@ -682,8 +766,13 @@ function slabRecycleValue(slab) {
   return Math.max(1, Math.round(GRADE_COSTS[card.rarity] * (GRADE_RECYCLE_FACTOR[slab.grade] || 0.2)));
 }
 
-function recycleSlabs(list) {
-  if (!list.length) return;
+async function recycleSlabs(list, filter = {}) {
+  if (!list.length || blocked()) return;
+  if (serverMode()) {
+    const r = await api("recycle", { kind: "slabs", ...filter });
+    if (r.ok) { const n = r.result.count; showToast(`♻️ ${n} carte${n > 1 ? "s" : ""} gradée${n > 1 ? "s" : ""} recyclée${n > 1 ? "s" : ""} : +${r.result.gain} pièces !`); }
+    return;
+  }
   const gain = list.reduce((n, s) => n + slabRecycleValue(s), 0);
   const toRemove = new Set(list);
   state.gradedCards = state.gradedCards.filter(s => !toRemove.has(s));
@@ -785,9 +874,9 @@ document.getElementById("card-modal").addEventListener("click", e => {
   if (recycleBtn) {
     const kind = recycleBtn.dataset.recycle;
     if (kind === "normal") {
-      recycleCard(detailCardId, Math.max(0, (state.collection[detailCardId] || 0) - 1));
+      recycleCard(detailCardId, Math.max(0, (state.collection[detailCardId] || 0) - 1), true);
     } else {
-      recycleSlabs(getDuplicateSlabs().filter(s => s.cardId === detailCardId && s.grade === Number(kind)));
+      recycleSlabs(getDuplicateSlabs().filter(s => s.cardId === detailCardId && s.grade === Number(kind)), { cardId: detailCardId, grade: Number(kind) });
     }
     return;
   }
@@ -799,6 +888,11 @@ document.getElementById("card-modal").addEventListener("click", e => {
     const total = normalDup * RARITY_CONFIG[card.rarity].recycleValue + slabDups.reduce((n, s) => n + slabRecycleValue(s), 0);
     if (total <= 0) return;
     if (!confirm(`Recycler tous les doublons de « ${card.name} » pour +${total} pièces ?\nUn exemplaire de chaque version est conservé.`)) return;
+    if (blocked()) return;
+    if (serverMode()) {
+      api("recycle", { kind: "card_all", cardId: detailCardId }).then(r => { if (r.ok) showToast(`♻️ Doublons recyclés : +${r.result.gain} pièces !`); });
+      return;
+    }
     if (normalDup > 0) {
       state.collection[detailCardId] -= normalDup;
       state.coins += normalDup * RARITY_CONFIG[card.rarity].recycleValue;
@@ -910,7 +1004,7 @@ function renderEditionPicker() {
   if (!renderEditionPicker.preloaded) {
     Object.values(EDITIONS).forEach(e => { if (e.pack) new Image().src = e.pack; });
     renderEditionPicker.preloaded = true;
-    new Image().src = "assets/cards/back.webp?v=37";
+    new Image().src = "assets/cards/back.webp?v=38";
   }
 }
 
@@ -1069,7 +1163,6 @@ const SITE_URL = "https://lazynk.github.io/tcgisekaz/";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 let currentUser = null;
 let syncedFor = null;   // id de l'utilisateur dont la synchro initiale est faite
-let pushTimer = null;
 
 const loginBtn = document.getElementById("btn-login");
 
@@ -1093,59 +1186,37 @@ loginBtn.addEventListener("click", async () => {
   });
 });
 
-async function pushToCloud() {
-  if (!currentUser) return;
-  const { error } = await sb.from("saves").upsert({
-    user_id: currentUser.id,
-    data: state,
-    updated_at: new Date().toISOString()
-  });
-  if (error) console.error("Erreur sauvegarde cloud :", error);
-}
-
-function queueCloudSave() {
-  if (!currentUser || syncedFor !== currentUser.id) return;
-  clearTimeout(pushTimer);
-  pushTimer = setTimeout(pushToCloud, 1500);
-}
-
+let syncing = false;
 async function syncFromCloud() {
-  if (!currentUser || syncedFor === currentUser.id) return;
+  if (!currentUser || syncedFor === currentUser.id || syncing) return;
+  syncing = true;
   const userId = currentUser.id;
-
-  const { data, error } = await sb
-    .from("saves")
-    .select("data")
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  if (error) {
-    console.error(error);
+  // Le serveur crée la sauvegarde (en important, plafonnée, la progression d'invité) ou renvoie l'existante
+  const r = await api("sync", { guest: state }, { silent: true });
+  syncing = false;
+  if (!r.ok) {
     showToast("❌ Impossible de synchroniser ta sauvegarde.");
     return;
   }
-
   syncedFor = userId;
-
-  if (data) {
-    // Une sauvegarde en ligne existe : on la charge
-    state = migrateState(data.data);
-    localStorage.setItem(SAVE_KEY, JSON.stringify(state));
-    updateUI();
-    showToast("☁️ Sauvegarde en ligne chargée !");
-    if (typeof grantDiscordBonus === "function") grantDiscordBonus();
-  } else {
-    // Première connexion : on envoie la progression locale actuelle
-    await pushToCloud();
-    showToast("☁️ Ta progression a été envoyée en ligne !");
-    if (typeof grantDiscordBonus === "function") grantDiscordBonus();
-  }
+  showToast(r.created
+    ? (r.imported ? "☁️ Compte créé : ta progression a été importée !" : "☁️ Compte créé, bienvenue !")
+    : "☁️ Sauvegarde en ligne chargée !");
+  renderBonusCard();
+  if (typeof grantDiscordBonus === "function") grantDiscordBonus();
 }
 
 sb.auth.onAuthStateChange((event, session) => {
   currentUser = session?.user ?? null;
   updateAuthUI();
   if (!currentUser) syncedFor = null;
+  if (event === "SIGNED_OUT") {
+    // La progression reste dans le compte en ligne ; on repart d'un mode invité tout neuf
+    state = newGuestState(); clockSkew = 0;
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); } catch (_) {}
+    updateUI();
+    if (typeof gRound !== "undefined") { gRound = null; gBetState = null; renderGames(); renderBonusCard(); }
+  }
   // setTimeout : évite d'appeler Supabase directement dans ce callback
   if (currentUser) setTimeout(syncFromCloud, 0);
 });

@@ -1108,7 +1108,7 @@ select {
 
 /* Dos de carte illustré (toutes éditions) */
 .flip-back {
-  background: url("assets/cards/back.webp?v=37") center / 100% 100% no-repeat, #12070a;
+  background: url("assets/cards/back.webp?v=38") center / 100% 100% no-repeat, #12070a;
   border: none;
   position: absolute;
 }
