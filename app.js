@@ -9,6 +9,9 @@ const DAILY_BASE = 100;       // bonus quotidien de base
 const DAILY_STREAK_STEP = 25; // +25 par jour consécutif
 const DAILY_STREAK_MAX = 6;   // plafonné à +150 (jour 7 et suivants = 250)
 const DISCOVERY_BONUS = { C: 5, UC: 10, R: 25, UR: 60, SEC: 150 }; // 1re fois qu'on obtient une carte
+const DISCOVERY_GEMS = { UR: 5, SEC: 15 };  // diamants offerts à la 1re découverte d'une UR / secrète
+const ISEKAZ_DISCOVERY_GEMS = 5;            // en plus pour toute carte de la série Isekaz
+const discoveryGemsFor = c => (DISCOVERY_GEMS[c.rarity] || 0) + (c.edition === "E4" ? ISEKAZ_DISCOVERY_GEMS : 0);
 
 /* --- HORLOGE & JOUR (fuseau de Paris, aligné sur le serveur) --- */
 let clockSkew = 0;                       // décalage entre l'horloge du serveur et celle de l'appareil
@@ -286,13 +289,16 @@ async function openPack(count = 1, autoBuy = false) {
   }
 
   isOpeningPack = true;
-  let pulled, discovery = 0;
+  let pulled, discovery = 0, discoveryGems = 0;
+  const bonusById = {};   // bonus de 1re découverte par carte
   if (serverMode()) {
     // Le tirage est fait par le serveur ; le navigateur n'affiche que le résultat
     const r = await api("open_pack", { edition: state.edition, count, autoBuy });
     if (!r.ok) { isOpeningPack = false; return; }
     pulled = r.result.cards.map(id => CARD_BY_ID[id]).filter(Boolean);
     discovery = r.result.discovery || 0;
+    discoveryGems = r.result.discoveryGems || 0;
+    (r.result.bonuses || []).forEach(b => { bonusById[b.id] = b; });
     pulled.forEach(c => { if (c.image) new Image().src = c.image; });
   } else {
     pulled = [];
@@ -314,13 +320,17 @@ async function openPack(count = 1, autoBuy = false) {
   if (!serverMode()) {
     pulled.forEach(c => { if (c.image) new Image().src = c.image; });
     pulled.forEach(c => {
-      if (!state.collection[c.id] && !state.gradedCards.some(g => g.cardId === c.id)) discovery += DISCOVERY_BONUS[c.rarity] || 0;
+      if (!state.collection[c.id] && !state.gradedCards.some(g => g.cardId === c.id)) {
+        const b = { id: c.id, coins: DISCOVERY_BONUS[c.rarity] || 0, gems: discoveryGemsFor(c) };
+        discovery += b.coins; discoveryGems += b.gems; bonusById[c.id] = b;
+      }
       state.collection[c.id] = (state.collection[c.id] || 0) + 1;
     });
-    if (discovery > 0) state.coins += discovery;
+    state.coins += discovery; state.gems += discoveryGems;
     saveState();
   }
-  if (discovery > 0) setTimeout(() => showToast(`🆕 Nouvelles cartes découvertes : +🪙 ${discovery}`), 3500);
+  const bonusText = b => `+🪙 ${b.coins}${b.gems ? ` +💎 ${b.gems}` : ""}`;
+  if (discovery > 0 || discoveryGems > 0) setTimeout(() => showToast(`🆕 Nouvelles cartes découvertes : ${bonusText({ coins: discovery, gems: discoveryGems })}`), 3500);
 
   // Ouverture interactive : on déchire le booster à la main, puis les cartes se dévoilent une par une
   isOpeningPack = false;
@@ -448,8 +458,11 @@ async function openPack(count = 1, autoBuy = false) {
           slot.classList.add("flipped");
           if (SUSPENSE[card.rarity]) playRareEffect(slot, card.rarity);
         }));
-        if (card.rarity === "SEC") showToast("🌟 CARTE SECRÈTE DÉBLOQUÉE !");
-        else if (card.rarity === "UR") showToast("🔥 ULTRA RARE !");
+        const nb = bonusById[card.id];
+        const nbText = nb && (nb.coins || nb.gems) ? ` 🆕 Nouvelle carte ${bonusText(nb)}` : "";
+        if (card.rarity === "SEC") showToast("🌟 CARTE SECRÈTE DÉBLOQUÉE !" + nbText);
+        else if (card.rarity === "UR") showToast("🔥 ULTRA RARE !" + nbText);
+        else if (nbText) showToast(nbText.trim());
         idx++;
         if (idx < cur.length) {
           left.dataset.rarity = cur[idx].rarity;
@@ -1063,7 +1076,7 @@ function renderEditionPicker() {
   if (!renderEditionPicker.preloaded) {
     Object.values(EDITIONS).forEach(e => { if (e.pack) new Image().src = e.pack; });
     renderEditionPicker.preloaded = true;
-    new Image().src = "assets/cards/back.webp?v=40";
+    new Image().src = "assets/cards/back.webp?v=41";
   }
 }
 

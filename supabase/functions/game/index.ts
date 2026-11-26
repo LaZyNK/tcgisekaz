@@ -19,6 +19,8 @@ const FREE_PACK_INTERVAL_MS = 30 * 60 * 1000;
 const PACK_COST = 150, SKIP_COST = 25, ISEKAZ_COST = 50, ISEKAZ_CARDS = 10, ISEKAZ_HANDMADE_CHANCE = 0.03;
 const DAILY_BASE = 100, DAILY_STREAK_STEP = 25, DAILY_STREAK_MAX = 6, DAILY_GEMS = 10;
 const DISCOVERY_BONUS: Record<string, number> = { C: 5, UC: 10, R: 25, UR: 60, SEC: 150 };
+const DISCOVERY_GEMS: Record<string, number> = { UR: 5, SEC: 15 };   // diamants à la 1re découverte (UR / secrète)
+const ISEKAZ_DISCOVERY_GEMS = 5;                                      // en plus, pour toute carte de la série Isekaz
 const GRADES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 9.5, 10];
 const GRADE_WEIGHTS: Record<string, number> = { "1": 4, "2": 5, "3": 7, "4": 9, "5": 12, "6": 14, "7": 14, "8": 12, "9": 10, "9.5": 8, "10": 5 };
 const GRADE_COSTS: Record<string, number> = { C: 20, UC: 35, R: 60, UR: 120, SEC: 250 };
@@ -244,14 +246,19 @@ const handlers: Record<string, (s: any, c: Ctx) => Promise<Out> | Out> = {
         pulled.push(rollFrom(rare));
       }
     }
-    let discovery = 0;
+    let discovery = 0, discoveryGems = 0;
+    const bonuses: { id: string; coins: number; gems: number }[] = [];
     const gradedIds = new Set(s.gradedCards.map((g: any) => g.cardId));
     for (const card of pulled) {
-      if (!s.collection[card.id] && !gradedIds.has(card.id)) discovery += DISCOVERY_BONUS[card.rarity] || 0;
+      if (!s.collection[card.id] && !gradedIds.has(card.id)) {
+        const coins = DISCOVERY_BONUS[card.rarity] || 0;
+        const gems = (DISCOVERY_GEMS[card.rarity] || 0) + (card.edition === "E4" ? ISEKAZ_DISCOVERY_GEMS : 0);
+        discovery += coins; discoveryGems += gems; bonuses.push({ id: card.id, coins, gems });
+      }
       s.collection[card.id] = (s.collection[card.id] || 0) + 1;
     }
-    s.coins += discovery;
-    return { result: { cards: pulled.map((x) => x.id), discovery, count, bought } };
+    s.coins += discovery; s.gems += discoveryGems;
+    return { result: { cards: pulled.map((x) => x.id), discovery, discoveryGems, bonuses, count, bought } };
   },
 
   grade: (s, c) => {
