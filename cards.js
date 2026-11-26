@@ -75,7 +75,7 @@ const CARD_DATABASE = [
   { id: "057", name: "Reine des Marées", rarity: "UR", emoji: "🌊", bg: "linear-gradient(135deg, #164e63, #22d3ee)", image: "assets/cards/057.webp", edition: "E2" },
   { id: "058", name: "Kraken Éveillé", rarity: "UR", emoji: "🐙", bg: "linear-gradient(135deg, #581c87, #c026d3)", image: "assets/cards/058.webp", edition: "E2" },
   { id: "059", name: "Titan de Glace", rarity: "UR", emoji: "🧊", bg: "linear-gradient(135deg, #1e3a8a, #67e8f9)", image: "assets/cards/059.webp", edition: "E2" },
-  { id: "060", name: "Roi des Abysses", rarity: "SEC", emoji: "🔱", bg: "linear-gradient(135deg, #0b1f4d, #facc15)", image: "", edition: "E2" },
+  { id: "060", name: "Roi des Abysses", rarity: "SEC", emoji: "🔱", bg: "linear-gradient(135deg, #0b1f4d, #facc15)", image: "assets/cards/060.webp", edition: "E2" },
   // ===== ÉDITION 3 — ÉCLIPSE (cosmos & machines) =====
   { id: "061", name: "Robot Sentinelle", rarity: "C", emoji: "🤖", bg: "linear-gradient(135deg, #0f172a, #475569)", image: "", edition: "E3" },
   { id: "062", name: "Satellite Errant", rarity: "C", emoji: "🛰️", bg: "linear-gradient(135deg, #1e293b, #334155)", image: "", edition: "E3" },
