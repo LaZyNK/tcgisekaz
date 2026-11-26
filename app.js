@@ -250,93 +250,205 @@ function openPack() {
   }
   saveState();
 
-  // Animation de déchirure du booster avant d'afficher les cartes dos tourné
-  const packEl = document.getElementById("booster-pack");
-  packEl.classList.add("opening");
+  // Ouverture interactive : on déchire le booster à la main, puis les cartes se dévoilent une par une
+  isOpeningPack = false;
+  const modal = document.getElementById("pack-modal");
+  const container = document.getElementById("opened-cards-container");
+  const closeBtn = document.getElementById("btn-close-modal");
+  const hint = modal.querySelector(".modal-hint");
+  const title = modal.querySelector("h2");
 
-  setTimeout(() => {
-    packEl.classList.remove("opening");
-    isOpeningPack = false;
+  closeBtn.classList.add("hidden");
+  container.classList.add("hidden");
+  container.innerHTML = "";
+  const oldStage = document.getElementById("opening-stage");
+  if (oldStage) oldStage.remove();
+  const stage = document.createElement("div");
+  stage.id = "opening-stage";
+  container.parentNode.insertBefore(stage, container);
 
-    const modal = document.getElementById("pack-modal");
-    const container = document.getElementById("opened-cards-container");
-    const closeBtn = document.getElementById("btn-close-modal");
-    const hint = modal.querySelector(".modal-hint");
+  let revealAllBtn = document.getElementById("btn-reveal-all");
+  if (!revealAllBtn) {
+    revealAllBtn = document.createElement("button");
+    revealAllBtn.id = "btn-reveal-all";
+    revealAllBtn.className = "btn-secondary";
+    closeBtn.parentNode.insertBefore(revealAllBtn, closeBtn);
+  }
+  revealAllBtn.classList.add("hidden");
 
-    closeBtn.classList.add("hidden");
-    hint.textContent = "Clique sur chaque carte pour la révéler une par une !";
-
-    // Génération des 5 emplacements face cachée
-    container.innerHTML = pulled.map((card, idx) => `
-      <div class="flip-slot" data-rarity="${card.rarity}" data-index="${idx}">
-        <div class="flip-inner">
-          <div class="flip-back">
-            <div class="flip-back-emblem">✦</div>
-            <div class="flip-back-label">Carte ${idx + 1}/${pulled.length}</div>
-          </div>
-          <div class="flip-front">
-            ${renderCardHTML(card)}
-          </div>
+  const SUSPENSE = { R: 500, UR: 900, SEC: 1400 };
+  const slotHTML = (card, idx, faceUp) => `
+    <div class="flip-slot${faceUp ? "" : ""}" data-rarity="${card.rarity}" data-index="${idx}">
+      <div class="flip-inner">
+        <div class="flip-back">
+          <div class="flip-back-emblem">✦</div>
+          <div class="flip-back-label">Carte ${idx + 1}/${pulled.length}</div>
         </div>
+        <div class="flip-front">${renderCardHTML(card)}</div>
       </div>
-    `).join("");
+    </div>`;
 
-    // Ajout d'un bouton "Tout révéler" à côté du bouton final
-    let revealAllBtn = document.getElementById("btn-reveal-all");
-    if (!revealAllBtn) {
-      revealAllBtn = document.createElement("button");
-      revealAllBtn.id = "btn-reveal-all";
-      revealAllBtn.className = "btn-secondary";
-      revealAllBtn.textContent = "TOUT RÉVÉLER";
-      closeBtn.parentNode.insertBefore(revealAllBtn, closeBtn);
-    }
-    revealAllBtn.classList.remove("hidden");
-
-    let revealedCount = 0;
+  /* ---------- Récapitulatif : toutes les cartes du booster ---------- */
+  const showRecap = () => {
+    stage.remove();
+    title.textContent = "CONTENU DU BOOSTER";
+    hint.textContent = "Survole les cartes pour admirer les reflets holographiques !";
+    revealAllBtn.classList.add("hidden");
+    closeBtn.classList.add("hidden");
+    container.classList.remove("hidden");
+    container.innerHTML = pulled.map((c, i) => slotHTML(c, i)).join("");
     const slots = container.querySelectorAll(".flip-slot");
+    slots.forEach((slot, i) => setTimeout(() => {
+      slot.classList.add("flipped");
+      if (i === slots.length - 1) setTimeout(() => closeBtn.classList.remove("hidden"), 450);
+    }, 250 + i * 140));
+  };
 
-    const SUSPENSE = { R: 500, UR: 900, SEC: 1400 };
+  /* ---------- Phase 2 : les cartes une par une (dos à gauche, carte dévoilée à droite) ---------- */
+  const startSequence = () => {
+    title.textContent = "TON BOOSTER";
+    hint.textContent = "Clique sur la carte de gauche pour la dévoiler !";
+    stage.innerHTML = `
+      <div class="seq-stage">
+        <div class="seq-col seq-left">${slotHTML(pulled[0], 0).replace('class="flip-slot"', 'class="flip-slot seq-slot"')}</div>
+        <div class="seq-arrow">➜</div>
+        <div class="seq-col seq-right"><div class="seq-placeholder">?</div></div>
+      </div>
+      <div class="seq-history"></div>`;
+    const left = stage.querySelector(".seq-left .flip-slot");
+    left.querySelector(".flip-front").remove();
+    const right = stage.querySelector(".seq-right");
+    const history = stage.querySelector(".seq-history");
+    revealAllBtn.textContent = "TOUT RÉVÉLER";
+    revealAllBtn.classList.remove("hidden");
+    revealAllBtn.onclick = showRecap;
 
-    const revealSlot = (slot, skipSuspense = false) => {
-      if (slot.classList.contains("flipped") || slot.classList.contains("charging")) return;
-      const rarity = slot.dataset.rarity;
+    const addThumb = card => {
+      const t = document.createElement("div");
+      t.className = "seq-thumb";
+      t.dataset.rarity = card.rarity;
+      t.title = card.name;
+      if (card.image) t.style.backgroundImage = `url('${card.image}')`;
+      else { t.style.background = card.bg; t.textContent = card.emoji; }
+      history.appendChild(t);
+    };
 
-      const doFlip = () => {
-        slot.classList.remove("charging");
-        slot.classList.add("flipped");
-        revealedCount++;
-
-        if (SUSPENSE[rarity]) playRareEffect(slot, rarity);
-        if (rarity === "SEC") showToast("🌟 CARTE SECRÈTE DÉBLOQUÉE !");
-        else if (rarity === "UR") showToast("🔥 ULTRA RARE !");
-
-        if (revealedCount === slots.length) {
-          revealAllBtn.classList.add("hidden");
+    let idx = 0, busy = false;
+    const step = () => {
+      if (busy || idx >= pulled.length) return;
+      busy = true;
+      const card = pulled[idx];
+      const go = () => {
+        left.classList.remove("charging");
+        if (idx > 0) addThumb(pulled[idx - 1]);
+        right.innerHTML = slotHTML(card, idx);
+        const slot = right.querySelector(".flip-slot");
+        slot.classList.add("seq-slot");
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          slot.classList.add("flipped");
+          if (SUSPENSE[card.rarity]) playRareEffect(slot, card.rarity);
+        }));
+        if (card.rarity === "SEC") showToast("🌟 CARTE SECRÈTE DÉBLOQUÉE !");
+        else if (card.rarity === "UR") showToast("🔥 ULTRA RARE !");
+        idx++;
+        if (idx < pulled.length) {
+          left.dataset.rarity = pulled[idx].rarity;
+          left.querySelector(".flip-back-label").textContent = `Carte ${idx + 1}/${pulled.length}`;
+          left.style.animation = "none"; void left.offsetWidth; left.style.animation = "";
+          hint.textContent = `Carte suivante : clique à gauche (${idx + 1}/${pulled.length})`;
+          busy = false;
+        } else {
+          left.classList.add("seq-done");
+          hint.textContent = "Survole la carte pour admirer les reflets holographiques !";
+          revealAllBtn.textContent = "VOIR TOUTES LES CARTES";
           closeBtn.classList.remove("hidden");
-          hint.textContent = "Survole les cartes pour admirer les reflets holographiques !";
+          busy = false;
         }
       };
+      if (SUSPENSE[card.rarity]) {
+        left.classList.add("charging");
+        setTimeout(go, SUSPENSE[card.rarity]);
+      } else go();
+    };
+    left.addEventListener("click", step);
+  };
 
-      if (SUSPENSE[rarity] && !skipSuspense) {
-        slot.classList.add("charging");
-        setTimeout(doFlip, SUSPENSE[rarity]);
-      } else {
-        doFlip();
+  /* ---------- Phase 1 : déchirer le haut du booster en traçant la ligne pointillée ---------- */
+  const startTear = () => {
+    const src = document.getElementById("booster-pack");
+    const TOP = 14; // position de la ligne de coupe (% de la hauteur)
+    const clone = cls => {
+      const c = src.cloneNode(true);
+      c.removeAttribute("id");
+      c.className = `${src.className} tear-clone ${cls}`;
+      c.style.cssText = src.style.cssText;
+      c.querySelectorAll(".booster-counter").forEach(n => n.remove());
+      return c.outerHTML;
+    };
+    title.textContent = "DÉCHIRE LE BOOSTER";
+    hint.textContent = "Trace la ligne pointillée de gauche à droite avec ta souris ou ton doigt.";
+    stage.innerHTML = `
+      <div class="tear-stage">
+        <div class="tear-pack" tabindex="0" role="button" aria-label="Déchirer le booster (Entrée pour ouvrir)" style="--top:${TOP}%">
+          ${clone("tear-bottom")}
+          <div class="tear-glow"></div>
+          <div class="tear-topwrap">${clone("tear-attached")}${clone("tear-torn")}</div>
+          <div class="tear-line"></div>
+          <div class="tear-dot">✂</div>
+        </div>
+        <button class="btn-secondary" id="btn-skip-tear">OUVRIR DIRECTEMENT</button>
+      </div>`;
+    const pack = stage.querySelector(".tear-pack");
+    const attached = pack.querySelector(".tear-attached");
+    const torn = pack.querySelector(".tear-torn");
+    const glow = pack.querySelector(".tear-glow");
+    const dot = pack.querySelector(".tear-dot");
+    let progress = 0, dragging = false, finished = false;
+
+    const paint = () => {
+      const x = (progress * 100).toFixed(1);
+      attached.style.clipPath = `inset(0 0 ${100 - TOP}% ${x}%)`;
+      torn.style.clipPath = `inset(0 ${100 - x}% ${100 - TOP}% 0)`;
+      torn.style.transformOrigin = `${x}% ${TOP}%`;
+      glow.style.width = `${x}%`;
+      dot.style.left = `${x}%`;
+      pack.classList.toggle("started", progress > 0.02);
+    };
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      progress = 1; paint();
+      pack.classList.add("done");
+      setTimeout(startSequence, 850);
+    };
+    const move = e => {
+      const r = pack.getBoundingClientRect();
+      const fx = (e.clientX - r.left) / r.width;
+      const fy = (e.clientY - r.top) / r.height;
+      // Il faut rester près de la ligne de coupe et ne pas « sauter » trop loin
+      if (Math.abs(fy - TOP / 100) < 0.16 && fx <= progress + 0.3) {
+        if (fx > progress) { progress = Math.min(1, fx); paint(); }
+        if (progress >= 0.96) finish();
       }
     };
-
-    slots.forEach(slot => {
-      slot.addEventListener("click", () => revealSlot(slot));
+    pack.addEventListener("pointerdown", e => {
+      if (finished) return;
+      dragging = true;
+      try { pack.setPointerCapture(e.pointerId); } catch (_) {}
+      move(e);
+      e.preventDefault();
     });
+    pack.addEventListener("pointermove", e => { if (dragging && !finished) move(e); });
+    const stop = () => { dragging = false; };
+    pack.addEventListener("pointerup", stop);
+    pack.addEventListener("pointercancel", stop);
+    pack.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); finish(); } });
+    stage.querySelector("#btn-skip-tear").addEventListener("click", finish);
+    paint();
+  };
 
-    revealAllBtn.onclick = () => {
-      slots.forEach((slot, i) => {
-        setTimeout(() => revealSlot(slot, true), i * 140);
-      });
-    };
-
-    modal.classList.remove("hidden");
-  }, 520);
+  modal.classList.remove("hidden");
+  startTear();
 }
 
 document.getElementById("btn-open-pack").addEventListener("click", openPack);
