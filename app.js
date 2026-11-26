@@ -368,13 +368,20 @@ async function openPack(count = 1, autoBuy = false) {
   }
   revealAllBtn.classList.add("hidden");
 
+  // Plusieurs boosters : on les enchaîne un par un (déchirage + cartes), sans fermer la fenêtre
+  const packSize = isIsekaz ? ISEKAZ_CARDS : 5;
+  const packsList = [];
+  for (let i = 0; i < pulled.length; i += packSize) packsList.push(pulled.slice(i, i + packSize));
+  let packIdx = 0, cur = packsList[0];
+  const multi = packsList.length > 1;
+  const packTitle = base => multi ? `${base} • ${packIdx + 1}/${packsList.length}` : base;
   const SUSPENSE = { R: 500, UR: 900, SEC: 1400 };
   const slotHTML = (card, idx, faceUp) => `
     <div class="flip-slot${faceUp ? "" : ""}" data-rarity="${card.rarity}" data-index="${idx}">
       <div class="flip-inner">
         <div class="flip-back">
           <div class="flip-back-emblem">✦</div>
-          <div class="flip-back-label">Carte ${idx + 1}/${pulled.length}</div>
+          <div class="flip-back-label">Carte ${idx + 1}/${cur.length}</div>
         </div>
         <div class="flip-front">${renderCardHTML(card)}</div>
       </div>
@@ -383,7 +390,7 @@ async function openPack(count = 1, autoBuy = false) {
   /* ---------- Récapitulatif : toutes les cartes du booster ---------- */
   const showRecap = () => {
     stage.remove();
-    title.textContent = "CONTENU DU BOOSTER";
+    title.textContent = multi ? `CONTENU DES ${packsList.length} BOOSTERS` : "CONTENU DU BOOSTER";
     hint.textContent = "Survole les cartes pour admirer les reflets holographiques !";
     revealAllBtn.classList.add("hidden");
     closeBtn.classList.add("hidden");
@@ -399,11 +406,11 @@ async function openPack(count = 1, autoBuy = false) {
 
   /* ---------- Phase 2 : les cartes une par une (dos à gauche, carte dévoilée à droite) ---------- */
   const startSequence = () => {
-    title.textContent = "TON BOOSTER";
+    title.textContent = packTitle("TON BOOSTER");
     hint.textContent = "Clique sur la carte de gauche pour la dévoiler !";
     stage.innerHTML = `
       <div class="seq-stage">
-        <div class="seq-col seq-left">${slotHTML(pulled[0], 0).replace('class="flip-slot"', 'class="flip-slot seq-slot"')}</div>
+        <div class="seq-col seq-left">${slotHTML(cur[0], 0).replace('class="flip-slot"', 'class="flip-slot seq-slot"')}</div>
         <div class="seq-arrow">➜</div>
         <div class="seq-col seq-right"><div class="seq-placeholder">?</div></div>
       </div>
@@ -412,7 +419,7 @@ async function openPack(count = 1, autoBuy = false) {
     left.querySelector(".flip-front").remove();
     const right = stage.querySelector(".seq-right");
     const history = stage.querySelector(".seq-history");
-    revealAllBtn.textContent = "TOUT RÉVÉLER";
+    revealAllBtn.textContent = multi ? "TOUT RÉVÉLER (TOUS LES BOOSTERS)" : "TOUT RÉVÉLER";
     revealAllBtn.classList.remove("hidden");
     revealAllBtn.onclick = showRecap;
 
@@ -428,12 +435,12 @@ async function openPack(count = 1, autoBuy = false) {
 
     let idx = 0, busy = false;
     const step = () => {
-      if (busy || idx >= pulled.length) return;
+      if (busy || idx >= cur.length) return;
       busy = true;
-      const card = pulled[idx];
+      const card = cur[idx];
       const go = () => {
         left.classList.remove("charging");
-        if (idx > 0) addThumb(pulled[idx - 1]);
+        if (idx > 0) addThumb(cur[idx - 1]);
         right.innerHTML = slotHTML(card, idx);
         const slot = right.querySelector(".flip-slot");
         slot.classList.add("seq-slot");
@@ -444,17 +451,28 @@ async function openPack(count = 1, autoBuy = false) {
         if (card.rarity === "SEC") showToast("🌟 CARTE SECRÈTE DÉBLOQUÉE !");
         else if (card.rarity === "UR") showToast("🔥 ULTRA RARE !");
         idx++;
-        if (idx < pulled.length) {
-          left.dataset.rarity = pulled[idx].rarity;
-          left.querySelector(".flip-back-label").textContent = `Carte ${idx + 1}/${pulled.length}`;
+        if (idx < cur.length) {
+          left.dataset.rarity = cur[idx].rarity;
+          left.querySelector(".flip-back-label").textContent = `Carte ${idx + 1}/${cur.length}`;
           left.style.animation = "none"; void left.offsetWidth; left.style.animation = "";
-          hint.textContent = `Carte suivante : clique à gauche (${idx + 1}/${pulled.length})`;
+          hint.textContent = `Carte suivante : clique à gauche (${idx + 1}/${cur.length})`;
           busy = false;
         } else {
           left.classList.add("seq-done");
           hint.textContent = "Survole la carte pour admirer les reflets holographiques !";
-          revealAllBtn.textContent = "VOIR TOUTES LES CARTES";
-          showClose();
+          if (packIdx < packsList.length - 1) {
+            // Booster suivant : on enchaîne directement
+            const nextBtn = document.createElement("button");
+            nextBtn.className = "btn-primary";
+            nextBtn.id = "btn-next-pack";
+            nextBtn.textContent = `BOOSTER SUIVANT (${packIdx + 2}/${packsList.length}) ➜`;
+            nextBtn.addEventListener("click", () => { packIdx++; cur = packsList[packIdx]; startTear(); });
+            stage.appendChild(nextBtn);
+            nextBtn.focus();
+          } else {
+            revealAllBtn.textContent = multi ? "VOIR TOUTES LES CARTES DES BOOSTERS" : "VOIR TOUTES LES CARTES";
+            showClose();
+          }
           busy = false;
         }
       };
@@ -478,7 +496,7 @@ async function openPack(count = 1, autoBuy = false) {
       c.querySelectorAll(".booster-counter").forEach(n => n.remove());
       return c.outerHTML;
     };
-    title.textContent = "DÉCHIRE LE BOOSTER";
+    title.textContent = packTitle("DÉCHIRE LE BOOSTER");
     hint.textContent = "Trace la ligne pointillée de gauche à droite avec ta souris ou ton doigt.";
     stage.innerHTML = `
       <div class="tear-stage">
@@ -541,14 +559,7 @@ async function openPack(count = 1, autoBuy = false) {
   };
 
   modal.classList.remove("hidden");
-  if (count > 1) {
-    // Ouverture groupée : on affiche directement tous les boosters (récapitulatif)
-    title.textContent = `${count} BOOSTERS OUVERTS`;
-    stage.innerHTML = "";
-    showRecap();
-    title.textContent = `${count} BOOSTERS OUVERTS`;
-    hint.textContent = `${pulled.length} cartes • survole-les pour admirer les reflets !`;
-  } else startTear();
+  startTear();
 }
 
 document.getElementById("btn-open-pack").addEventListener("click", () => openPack());
@@ -1052,7 +1063,7 @@ function renderEditionPicker() {
   if (!renderEditionPicker.preloaded) {
     Object.values(EDITIONS).forEach(e => { if (e.pack) new Image().src = e.pack; });
     renderEditionPicker.preloaded = true;
-    new Image().src = "assets/cards/back.webp?v=39";
+    new Image().src = "assets/cards/back.webp?v=40";
   }
 }
 
