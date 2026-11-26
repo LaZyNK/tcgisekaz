@@ -462,6 +462,37 @@ function renderCardHTML(card, opts = {}) {
   `;
 }
 
+// Vitrine : une seule vignette par carte gradée (meilleure note), clic = fiche détaillée
+function renderGradedShowcase() {
+  const byCard = {};
+  for (const s of state.gradedCards) {
+    (byCard[s.cardId] = byCard[s.cardId] || []).push(s);
+  }
+  const entries = Object.keys(byCard).filter(id => CARD_BY_ID[id]).map(id => {
+    const slabs = byCard[id];
+    const grades = new Set(slabs.map(s => s.grade));
+    const best = slabs.reduce((m, s) => (s.grade > m.grade || (s.grade === m.grade && slabQuality(s) > slabQuality(m))) ? s : m, slabs[0]);
+    const complete = grades.size === GRADES.length && (state.collection[id] || 0) > 0;
+    return { id, slabs, count: grades.size, best, complete };
+  });
+  entries.sort((a, b) => (b.complete - a.complete) || (b.count - a.count) || a.id.localeCompare(b.id));
+  return entries.map(en => {
+    const card = CARD_BY_ID[en.id];
+    return `
+      <div class="slab-wrapper clickable showcase${en.complete ? " complete" : ""}" data-card-id="${en.id}" data-grade="${en.best.grade}">
+        <div class="slab-label ${en.best.isBlackLabel ? "black-label" : ""}">
+          <div class="slab-info">
+            <strong>${card.name}</strong>
+            <span>${en.count}/${GRADES.length} notes${en.complete ? " ★ COMPLÈTE" : ""}</span>
+          </div>
+          <div class="slab-grade" title="Meilleure note">${en.best.grade}</div>
+        </div>
+        ${renderCardHTML(card, { complete: en.complete })}
+        <div class="slab-subgrades">${en.slabs.length} exemplaire${en.slabs.length > 1 ? "s" : ""} gradé${en.slabs.length > 1 ? "s" : ""} • touche pour voir le détail</div>
+      </div>`;
+  }).join("");
+}
+
 function renderSlabHTML(slab, opts = {}) {
   const card = CARD_BY_ID[slab.cardId];
   const labelTitle = slab.isBlackLabel ? "BLACK LABEL 10" : (GRADE_LABELS[slab.grade] || "GRADED");
@@ -666,12 +697,6 @@ document.getElementById("collection-grid").addEventListener("click", e => {
 
 // Clic sur une carte gradée : ouvre la fiche à cette note ; bouton pour recycler un doublon
 document.getElementById("graded-grid").addEventListener("click", e => {
-  const recycleBtn = e.target.closest(".slab-recycle");
-  if (recycleBtn) {
-    const slab = getDuplicateSlabs().find(s => s.uid === recycleBtn.dataset.uid);
-    if (slab) recycleSlabs([slab]);
-    return;
-  }
   const wrap = e.target.closest(".slab-wrapper");
   if (wrap) openCardDetail(wrap.dataset.cardId, Number(wrap.dataset.grade));
 });
@@ -819,9 +844,7 @@ function updateUI() {
   const gradedGrid = document.getElementById("graded-grid");
   if (state.gradedCards.length > 0 && statusFilter !== "OWNED") {
     gradedSection.classList.remove("hidden");
-    const hidden = state.gradedCards.length - SLAB_DISPLAY_LIMIT;
-    gradedGrid.innerHTML = state.gradedCards.slice(0, SLAB_DISPLAY_LIMIT).map(s => renderSlabHTML(s, { clickable: true, dupValue: dupSet.has(s) ? slabRecycleValue(s) : 0 })).join("") +
-      (hidden > 0 ? `<p class="placeholder-text">… et ${hidden} autre${hidden > 1 ? "s" : ""} carte${hidden > 1 ? "s" : ""} gradée${hidden > 1 ? "s" : ""}</p>` : "");
+    gradedGrid.innerHTML = renderGradedShowcase();
   } else {
     gradedSection.classList.add("hidden");
   }
