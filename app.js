@@ -910,6 +910,7 @@ function renderEditionPicker() {
   if (!renderEditionPicker.preloaded) {
     Object.values(EDITIONS).forEach(e => { if (e.pack) new Image().src = e.pack; });
     renderEditionPicker.preloaded = true;
+    new Image().src = "assets/cards/back.webp?v=37";
   }
 }
 

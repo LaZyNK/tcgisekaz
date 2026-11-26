@@ -11,7 +11,7 @@ const EDITIONS = {
   E2: { name: "ABYSSES",  tag: "ÉDITION 02", gradient: "linear-gradient(135deg, #10b981 0%, #0ea5e9 50%, #6366f1 100%)", pack: "assets/boosters/abysses.webp" },
   E3: { name: "ÉCLIPSE",  tag: "ÉDITION 03", gradient: "linear-gradient(135deg, #f59e0b 0%, #ef4444 50%, #7c3aed 100%)", pack: "assets/boosters/eclipse.webp" },
   // Booster spécial payé en diamants : 9 cartes des 3 éditions + 1 carte de la série exclusive Isekaz
-  E4: { name: "ISEKAZ",   tag: "SPÉCIAL ★",  gradient: "linear-gradient(135deg, #7f1d1d 0%, #b4161b 45%, #facc15 100%)", pack: "", special: true }
+  E4: { name: "ISEKAZ",   tag: "SPÉCIAL ★",  gradient: "linear-gradient(135deg, #7f1d1d 0%, #b4161b 45%, #facc15 100%)", pack: "assets/boosters/isekaz.webp", special: true }
 };
 
 // Catalogue des cartes : ajoute tes visuels dans "image" (ex: "assets/carte01.png")

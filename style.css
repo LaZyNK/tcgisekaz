@@ -1105,3 +1105,16 @@ select {
 .seq-thumb[data-rarity="UR"] { border-color: #c084fc; }
 .seq-thumb[data-rarity="SEC"] { border-color: #facc15; box-shadow: 0 0 10px #facc15; }
 @media (max-width: 520px) { .seq-stage { gap: 0.4rem; } .seq-arrow { font-size: 1.1rem; } .tear-pack { transform: scale(1); } }
+
+/* Dos de carte illustré (toutes éditions) */
+.flip-back {
+  background: url("assets/cards/back.webp?v=37") center / 100% 100% no-repeat, #12070a;
+  border: none;
+  position: absolute;
+}
+.flip-back .flip-back-emblem { display: none; }
+.flip-back .flip-back-label {
+  position: absolute; left: 50%; bottom: 7%; transform: translateX(-50%); white-space: nowrap;
+  padding: 0.25rem 0.7rem; border-radius: 999px; background: rgba(8, 4, 6, 0.72); border: 1px solid rgba(217, 180, 90, 0.6);
+  font-size: 0.7rem;
+}
