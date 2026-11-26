@@ -1023,3 +1023,14 @@ select {
 .slab-wrapper.showcase { transition: transform .2s, box-shadow .2s, border-color .2s; border-color: rgba(217, 180, 90, 0.55); }
 .slab-wrapper.showcase:hover { transform: translateY(-4px); border-color: var(--gold-hi); box-shadow: 0 14px 34px rgba(0,0,0,.6), 0 0 18px rgba(217,180,90,.35); }
 .slab-wrapper.showcase.complete { border-color: #facc15; box-shadow: 0 12px 30px rgba(0,0,0,.55), 0 0 26px rgba(250,204,21,.5); }
+
+/* Missions bonus */
+.bonus-card { max-width: 640px; margin: 22px auto 0; background: var(--panel-2); border: 1px solid rgba(217,180,90,.3); padding: 18px 20px; }
+.bonus-title { font-family: 'Oswald', sans-serif; letter-spacing: 3px; color: var(--gold-hi); margin-bottom: 10px; font-size: 1.05rem; }
+.bonus-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 0; border-top: 1px solid rgba(217,180,90,.15); }
+.bonus-row strong { display: block; color: #fff; }
+.bonus-row span { color: #b9ae98; font-size: .9rem; }
+.bonus-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.bonus-actions a.btn-secondary { text-decoration: none; display: inline-flex; align-items: center; }
+.bonus-done { color: #4fd18b; font-style: normal; font-weight: 700; }
+.bonus-todo { color: #b9ae98; font-style: normal; font-size: .85rem; }

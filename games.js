@@ -2,6 +2,8 @@
    TCG ISEKAZ — Salle de jeux : Pixel, Zoom, Pari + bonus connexion Discord
    Dépend de app.js : state, saveState, showToast, todayKey, CARD_DATABASE, currentUser
    ===================================================================== */
+const SERVER_BONUS = 400;       // cadeau unique pour avoir rejoint le serveur Discord
+const DISCORD_INVITE = "https://discord.gg/GQARqAEC7T";
 const GAME_DAILY_PLAYS = 3;     // parties par jour et par mode (Pixel / Zoom)
 const DISCORD_BONUS = 300;      // cadeau unique à la première connexion Discord
 const BET_OPTIONS = [10, 25, 50, 100, 250];
@@ -230,3 +232,51 @@ document.addEventListener("click", e => {
 });
 document.querySelectorAll('.nav-btn[data-tab="games"]').forEach(b => b.addEventListener("click", renderGames));
 renderGames();
+
+
+/* ---------- Missions bonus (accueil) ---------- */
+let serverClaimBusy = false;
+function renderBonusCard() {
+  const el = document.getElementById("bonus-card");
+  if (!el) return;
+  const logged = !!currentUser;
+  const rowLogin = `<div class="bonus-row"><div><strong>Se connecter avec Discord</strong><span>+🪙 ${DISCORD_BONUS} • une seule fois</span></div>
+    ${state.discordBonus ? '<em class="bonus-done">✅ Récupéré</em>' : '<em class="bonus-todo">Utilise le bouton Connexion en haut</em>'}</div>`;
+  let action;
+  if (state.serverBonus) action = '<em class="bonus-done">✅ Récupéré</em>';
+  else action = `<div class="bonus-actions">
+      <a class="btn-secondary" href="${DISCORD_INVITE}" target="_blank" rel="noopener">REJOINDRE</a>
+      <button class="btn-primary" data-claim-server="1" ${serverClaimBusy ? "disabled" : ""}>${logged ? "J'AI REJOINT • RÉCUPÉRER" : "CONNEXION REQUISE"}</button></div>`;
+  const rowServer = `<div class="bonus-row"><div><strong>Rejoindre le serveur Discord</strong><span>+🪙 ${SERVER_BONUS} • une seule fois</span></div>${action}</div>`;
+  el.innerHTML = `<h3 class="bonus-title">🎁 MISSIONS BONUS</h3>${rowLogin}${rowServer}`;
+}
+
+async function claimServerBonus() {
+  if (!currentUser) return showToast("🔐 Connecte-toi d'abord avec Discord.");
+  if (state.serverBonus || serverClaimBusy) return;
+  serverClaimBusy = true; renderBonusCard();
+  try {
+    const { data, error } = await sb.functions.invoke("claim-server-bonus");
+    if (error || !data) { showToast("❌ Bonus indisponible pour le moment, réessaie plus tard."); return; }
+    if (data.status === "ok") {
+      state.serverBonus = true; state.coins += SERVER_BONUS; saveState();
+      showToast(`🎉 Merci d'avoir rejoint le serveur : +🪙 ${SERVER_BONUS}`);
+    } else if (data.status === "already") {
+      state.serverBonus = true; saveState();
+      showToast("✅ Ce compte Discord a déjà récupéré ce bonus.");
+    } else if (data.status === "not_member") {
+      showToast("🤔 Tu n'as pas encore rejoint le serveur. Clique sur REJOINDRE puis réessaie.");
+    } else {
+      showToast("❌ " + (data.message || "Erreur, réessaie plus tard."));
+    }
+  } catch (e) {
+    console.error(e);
+    showToast("❌ Bonus indisponible pour le moment.");
+  } finally {
+    serverClaimBusy = false; renderBonusCard();
+  }
+}
+document.addEventListener("click", e => {
+  if (e.target.closest("[data-claim-server]")) claimServerBonus();
+});
+renderBonusCard();

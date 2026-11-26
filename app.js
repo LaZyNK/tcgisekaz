@@ -823,6 +823,7 @@ function renderMyProgress(gradeMap) {
 /* --- MISE À JOUR GLOBALE DE L'INTERFACE --- */
 function updateUI() {
   updateDailyButton();
+  if (typeof renderBonusCard === "function") renderBonusCard();
   renderEditionPicker();
   const gradeMap = buildGradeMap();
   const dupSlabs = getDuplicateSlabs();
