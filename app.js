@@ -270,37 +270,45 @@ function playRareEffect(slot, rarity) {
 
 let isOpeningPack = false;
 
-async function openPack() {
+// Combien de boosters l'édition choisie peut-on ouvrir : déjà en stock, ou en achetant avec les pièces / diamants
+function packsReady() { return state.edition === "E4" ? Math.floor(state.gems / ISEKAZ_COST) : state.packs; }
+function packsAffordable() { return state.edition === "E4" ? Math.floor(state.gems / ISEKAZ_COST) : state.packs + Math.floor(state.coins / PACK_COST); }
+
+async function openPack(count = 1, autoBuy = false) {
   if (isOpeningPack || blocked()) return;
+  count = Math.min(10, Math.max(1, Math.floor(Number(count)) || 1));
   const isIsekaz = state.edition === "E4";
-  if (!serverMode()) {
-    if (isIsekaz) {
-      if (state.gems < ISEKAZ_COST) return showToast(`❌ Il faut 💎 ${ISEKAZ_COST} pour ouvrir un booster Isekaz.`);
-    } else if (state.packs <= 0) {
-      showToast("❌ Aucun booster disponible ! Achètes-en un ou attends le timer.");
-      return;
-    }
+  if (isIsekaz) {
+    if (state.gems < ISEKAZ_COST * count) return showToast(`❌ Il faut 💎 ${ISEKAZ_COST * count} pour ouvrir ${count > 1 ? count + " boosters Isekaz" : "un booster Isekaz"}.`);
+  } else if (state.packs < count && !(autoBuy && packsAffordable() >= count)) {
+    showToast(state.packs <= 0 && count === 1 ? "❌ Aucun booster disponible ! Achètes-en un ou attends le timer." : `❌ Il te faut ${count} boosters (tu en as ${state.packs}).`);
+    return;
   }
 
   isOpeningPack = true;
   let pulled, discovery = 0;
   if (serverMode()) {
     // Le tirage est fait par le serveur ; le navigateur n'affiche que le résultat
-    const r = await api("open_pack", { edition: state.edition });
+    const r = await api("open_pack", { edition: state.edition, count, autoBuy });
     if (!r.ok) { isOpeningPack = false; return; }
     pulled = r.result.cards.map(id => CARD_BY_ID[id]).filter(Boolean);
     discovery = r.result.discovery || 0;
     pulled.forEach(c => { if (c.image) new Image().src = c.image; });
-  } else if (isIsekaz) {
-    state.gems -= ISEKAZ_COST;
-    // 9 cartes tirées dans les 3 éditions + 1 carte exclusive Isekaz (rare minimum) en dernière position
-    pulled = [];
-    for (let i = 0; i < ISEKAZ_CARDS - 1; i++) pulled.push(rollCard(null, "ALL"));
-    pulled.push(rollIsekazExclusive());
   } else {
-    state.packs -= 1;
-    // 4 cartes aléatoires + 1 carte garantie Rare minimum en dernière position
-    pulled = [rollCard(), rollCard(), rollCard(), rollCard(), rollCard("R")];
+    pulled = [];
+    for (let n = 0; n < count; n++) {
+      if (isIsekaz) {
+        state.gems -= ISEKAZ_COST;
+        // 9 cartes tirées dans les 3 éditions + 1 carte exclusive Isekaz en dernière position
+        for (let i = 0; i < ISEKAZ_CARDS - 1; i++) pulled.push(rollCard(null, "ALL"));
+        pulled.push(rollIsekazExclusive());
+      } else {
+        if (state.packs <= 0) { state.coins -= PACK_COST; state.packs += 1; }   // achat automatique du booster manquant
+        state.packs -= 1;
+        // 4 cartes aléatoires + 1 carte garantie Rare minimum en dernière position
+        pulled.push(rollCard(), rollCard(), rollCard(), rollCard(), rollCard("R"));
+      }
+    }
   }
   // Précharge les illustrations pour qu'elles soient prêtes au retournement
   if (!serverMode()) {
@@ -323,6 +331,26 @@ async function openPack() {
   const title = modal.querySelector("h2");
 
   closeBtn.classList.add("hidden");
+  let againBtn = document.getElementById("btn-open-again");
+  if (!againBtn) {
+    againBtn = document.createElement("button");
+    againBtn.id = "btn-open-again";
+    againBtn.className = "btn-secondary";
+    closeBtn.parentNode.insertBefore(againBtn, closeBtn);
+    againBtn.addEventListener("click", () => openPack(1, true));
+  }
+  againBtn.classList.add("hidden");
+  // « Ouvrir un autre booster » : en stock, sinon acheté avec les pièces, ou payé en diamants pour Isekaz
+  const showClose = () => {
+    closeBtn.classList.remove("hidden");
+    if (packsReady() >= 1) {
+      againBtn.textContent = isIsekaz ? `OUVRIR UN AUTRE (💎 ${ISEKAZ_COST})` : `OUVRIR UN AUTRE (${state.packs} en stock)`;
+      againBtn.classList.remove("hidden");
+    } else if (packsAffordable() >= 1) {
+      againBtn.textContent = `ACHETER ET OUVRIR (🪙 ${PACK_COST})`;
+      againBtn.classList.remove("hidden");
+    }
+  };
   container.classList.add("hidden");
   container.innerHTML = "";
   const oldStage = document.getElementById("opening-stage");
@@ -362,10 +390,11 @@ async function openPack() {
     container.classList.remove("hidden");
     container.innerHTML = pulled.map((c, i) => slotHTML(c, i)).join("");
     const slots = container.querySelectorAll(".flip-slot");
+    const gap = Math.min(140, Math.floor(2400 / slots.length));
     slots.forEach((slot, i) => setTimeout(() => {
       slot.classList.add("flipped");
-      if (i === slots.length - 1) setTimeout(() => closeBtn.classList.remove("hidden"), 450);
-    }, 250 + i * 140));
+      if (i === slots.length - 1) setTimeout(showClose, 450);
+    }, 250 + i * gap));
   };
 
   /* ---------- Phase 2 : les cartes une par une (dos à gauche, carte dévoilée à droite) ---------- */
@@ -425,7 +454,7 @@ async function openPack() {
           left.classList.add("seq-done");
           hint.textContent = "Survole la carte pour admirer les reflets holographiques !";
           revealAllBtn.textContent = "VOIR TOUTES LES CARTES";
-          closeBtn.classList.remove("hidden");
+          showClose();
           busy = false;
         }
       };
@@ -512,11 +541,30 @@ async function openPack() {
   };
 
   modal.classList.remove("hidden");
-  startTear();
+  if (count > 1) {
+    // Ouverture groupée : on affiche directement tous les boosters (récapitulatif)
+    title.textContent = `${count} BOOSTERS OUVERTS`;
+    stage.innerHTML = "";
+    showRecap();
+    title.textContent = `${count} BOOSTERS OUVERTS`;
+    hint.textContent = `${pulled.length} cartes • survole-les pour admirer les reflets !`;
+  } else startTear();
 }
 
-document.getElementById("btn-open-pack").addEventListener("click", openPack);
-document.getElementById("booster-pack").addEventListener("click", openPack);
+document.getElementById("btn-open-pack").addEventListener("click", () => openPack());
+document.getElementById("booster-pack").addEventListener("click", () => openPack());
+document.getElementById("multi-open").addEventListener("click", e => {
+  const b = e.target.closest("[data-multi]");
+  if (b) openPack(Number(b.dataset.multi), true);
+});
+function updateMultiButtons() {
+  document.querySelectorAll("#multi-open [data-multi]").forEach(b => {
+    const n = Number(b.dataset.multi);
+    const cost = state.edition === "E4" ? `💎 ${ISEKAZ_COST * n}` : (state.packs >= n ? `${n} en stock` : `🪙 ${(n - state.packs) * PACK_COST} à acheter`);
+    b.textContent = `OUVRIR ×${n} (${cost})`;
+    b.disabled = packsAffordable() < n;
+  });
+}
 document.getElementById("btn-close-modal").addEventListener("click", () => {
   document.getElementById("pack-modal").classList.add("hidden");
 });
@@ -1004,7 +1052,7 @@ function renderEditionPicker() {
   if (!renderEditionPicker.preloaded) {
     Object.values(EDITIONS).forEach(e => { if (e.pack) new Image().src = e.pack; });
     renderEditionPicker.preloaded = true;
-    new Image().src = "assets/cards/back.webp?v=38";
+    new Image().src = "assets/cards/back.webp?v=39";
   }
 }
 
@@ -1066,6 +1114,7 @@ function renderMyProgress(gradeMap) {
 
 /* --- MISE À JOUR GLOBALE DE L'INTERFACE --- */
 function updateUI() {
+  updateMultiButtons();
   updateDailyButton();
   if (typeof renderBonusCard === "function") renderBonusCard();
   renderEditionPicker();

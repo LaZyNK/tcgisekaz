@@ -214,22 +214,35 @@ const handlers: Record<string, (s: any, c: Ctx) => Promise<Out> | Out> = {
 
   open_pack: (s, c) => {
     const edition = String(c.body.edition || "E1");
+    const count = Math.min(10, Math.max(1, Math.floor(Number(c.body.count) || 1)));
+    const autoBuy = !!c.body.autoBuy;   // achète les boosters manquants avec des pièces
     const classic = c.list.filter((x) => x.edition !== "E4");
     const pulled: Card[] = [];
+    let bought = 0;
     if (edition === "E4") {
-      if (s.gems < ISEKAZ_COST) fail("no_gems", `Il faut 💎 ${ISEKAZ_COST} pour ouvrir un booster Isekaz.`);
-      s.gems -= ISEKAZ_COST;
-      for (let i = 0; i < ISEKAZ_CARDS - 1; i++) pulled.push(rollFrom(classic));
+      if (s.gems < ISEKAZ_COST * count) fail("no_gems", `Il faut 💎 ${ISEKAZ_COST * count} pour ouvrir ${count > 1 ? count + " boosters Isekaz" : "un booster Isekaz"}.`);
+      s.gems -= ISEKAZ_COST * count;
       const series = c.list.filter((x) => x.edition === "E4");
       const handmade = series.filter((x) => x.handmade), regular = series.filter((x) => !x.handmade);
-      pulled.push(pick(rnd() < ISEKAZ_HANDMADE_CHANCE && handmade.length ? handmade : regular));
+      for (let n = 0; n < count; n++) {
+        for (let i = 0; i < ISEKAZ_CARDS - 1; i++) pulled.push(rollFrom(classic));
+        pulled.push(pick(rnd() < ISEKAZ_HANDMADE_CHANCE && handmade.length ? handmade : regular));
+      }
     } else {
       const pool = c.list.filter((x) => x.edition === edition);
       if (!pool.length) fail("bad_request", "Édition inconnue.");
-      if (s.packs <= 0) fail("no_pack", "Aucun booster disponible ! Achètes-en un ou attends le timer.");
-      s.packs -= 1;
-      for (let i = 0; i < 4; i++) pulled.push(rollFrom(pool));
-      pulled.push(rollFrom(pool.filter((x) => ["R", "UR", "SEC"].includes(x.rarity))));
+      const missing = Math.max(0, count - s.packs);
+      if (missing > 0) {
+        if (!autoBuy) fail("no_pack", "Aucun booster disponible ! Achètes-en un ou attends le timer.");
+        if (s.coins < missing * PACK_COST) fail("no_coins", "Pas assez de pièces pour acheter les boosters manquants.");
+        s.coins -= missing * PACK_COST; s.packs += missing; bought = missing;
+      }
+      s.packs -= count;
+      const rare = pool.filter((x) => ["R", "UR", "SEC"].includes(x.rarity));
+      for (let n = 0; n < count; n++) {
+        for (let i = 0; i < 4; i++) pulled.push(rollFrom(pool));
+        pulled.push(rollFrom(rare));
+      }
     }
     let discovery = 0;
     const gradedIds = new Set(s.gradedCards.map((g: any) => g.cardId));
@@ -238,7 +251,7 @@ const handlers: Record<string, (s: any, c: Ctx) => Promise<Out> | Out> = {
       s.collection[card.id] = (s.collection[card.id] || 0) + 1;
     }
     s.coins += discovery;
-    return { result: { cards: pulled.map((x) => x.id), discovery } };
+    return { result: { cards: pulled.map((x) => x.id), discovery, count, bought } };
   },
 
   grade: (s, c) => {
