@@ -5,7 +5,11 @@
 const SERVER_BONUS = 400;       // cadeau unique pour avoir rejoint le serveur Discord
 const DISCORD_INVITE = "https://discord.gg/GQARqAEC7T";
 const GAME_DAILY_PLAYS = 3;     // parties par jour et par mode (Pixel / Zoom)
-const DISCORD_BONUS = 300;      // cadeau unique à la première connexion Discord
+const DISCORD_BONUS = 300;
+const DISCORD_GEMS = 50;        // diamants offerts avec la connexion Discord
+const SERVER_GEMS = 100;        // diamants offerts pour avoir rejoint le serveur
+const COMPLETE_GEMS = 25;       // diamants par carte complète (12 versions), une fois par carte
+const GEM_DROP_CHANCE = 0.25;   // chance de gagner 1 à 3 diamants sur une bonne réponse aux mini-jeux      // cadeau unique à la première connexion Discord
 const BET_OPTIONS = [10, 25, 50, 100, 250];
 const BET_MULT = 2.7;           // gain si on trouve la bonne carte (1 chance sur 3 => 90 % de retour)
 const PIXEL_CELLS = [6, 8, 10, 12, 16];
@@ -32,9 +36,11 @@ function gShuffle(arr) {
 function grantDiscordBonus() {
   if (!currentUser || state.discordBonus) return;
   state.discordBonus = true;
+  state.discordGems = true;
   state.coins += DISCORD_BONUS;
+  state.gems += DISCORD_GEMS;
   saveState();
-  showToast(`🎉 Bienvenue ! Bonus de connexion Discord : +🪙 ${DISCORD_BONUS}`);
+  showToast(`🎉 Bienvenue ! Bonus de connexion Discord : +🪙 ${DISCORD_BONUS} +💎 ${DISCORD_GEMS}`);
 }
 
 /* ---------- Parties du jour ---------- */
@@ -118,7 +124,13 @@ function answerRound(cardId) {
   const ok = cardId === gRound.card.id;
   if (ok) {
     state.coins += gRound.reward;
-    showToast(`✅ Bravo ! C'était bien ${gRound.card.name} : +🪙 ${gRound.reward}`);
+    let gemText = "";
+    if (Math.random() < GEM_DROP_CHANCE) {
+      const gems = 1 + Math.floor(Math.random() * 3);
+      state.gems += gems;
+      gemText = ` +💎 ${gems}`;
+    }
+    showToast(`✅ Bravo ! C'était bien ${gRound.card.name} : +🪙 ${gRound.reward}${gemText}`);
   } else {
     showToast(`❌ Raté ! C'était ${gRound.card.name}.`);
   }
@@ -240,15 +252,16 @@ function renderBonusCard() {
   const el = document.getElementById("bonus-card");
   if (!el) return;
   const logged = !!currentUser;
-  const rowLogin = `<div class="bonus-row"><div><strong>Se connecter avec Discord</strong><span>+🪙 ${DISCORD_BONUS} • une seule fois</span></div>
+  const rowLogin = `<div class="bonus-row"><div><strong>Se connecter avec Discord</strong><span>+🪙 ${DISCORD_BONUS} +💎 ${DISCORD_GEMS} • une seule fois</span></div>
     ${state.discordBonus ? '<em class="bonus-done">✅ Récupéré</em>' : '<em class="bonus-todo">Utilise le bouton Connexion en haut</em>'}</div>`;
   let action;
   if (state.serverBonus) action = '<em class="bonus-done">✅ Récupéré</em>';
   else action = `<div class="bonus-actions">
       <a class="btn-secondary" href="${DISCORD_INVITE}" target="_blank" rel="noopener">REJOINDRE</a>
       <button class="btn-primary" data-claim-server="1" ${serverClaimBusy ? "disabled" : ""}>${logged ? "J'AI REJOINT • RÉCUPÉRER" : "CONNEXION REQUISE"}</button></div>`;
-  const rowServer = `<div class="bonus-row"><div><strong>Rejoindre le serveur Discord</strong><span>+🪙 ${SERVER_BONUS} • une seule fois</span></div>${action}</div>`;
-  el.innerHTML = `<h3 class="bonus-title">🎁 MISSIONS BONUS</h3>${rowLogin}${rowServer}`;
+  const rowServer = `<div class="bonus-row"><div><strong>Rejoindre le serveur Discord</strong><span>+🪙 ${SERVER_BONUS} +💎 ${SERVER_GEMS} • une seule fois</span></div>${action}</div>`;
+  const rowGems = `<div class="bonus-row"><div><strong>Gagner des 💎 (booster Isekaz : 💎 ${ISEKAZ_COST})</strong><span>Bonus quotidien +💎 ${DAILY_GEMS} • carte complète (12 versions) +💎 ${COMPLETE_GEMS} • bonnes réponses aux mini-jeux : chance de 💎 1 à 3</span></div></div>`;
+  el.innerHTML = `<h3 class="bonus-title">🎁 MISSIONS BONUS</h3>${rowLogin}${rowServer}${rowGems}`;
 }
 
 async function claimServerBonus() {
@@ -259,8 +272,9 @@ async function claimServerBonus() {
     const { data, error } = await sb.functions.invoke("claim-server-bonus");
     if (error || !data) { showToast("❌ Bonus indisponible pour le moment, réessaie plus tard."); return; }
     if (data.status === "ok") {
-      state.serverBonus = true; state.coins += SERVER_BONUS; saveState();
-      showToast(`🎉 Merci d'avoir rejoint le serveur : +🪙 ${SERVER_BONUS}`);
+      state.serverBonus = true; state.serverGems = true;
+      state.coins += SERVER_BONUS; state.gems += SERVER_GEMS; saveState();
+      showToast(`🎉 Merci d'avoir rejoint le serveur : +🪙 ${SERVER_BONUS} +💎 ${SERVER_GEMS}`);
     } else if (data.status === "already") {
       state.serverBonus = true; saveState();
       showToast("✅ Ce compte Discord a déjà récupéré ce bonus.");
@@ -280,3 +294,36 @@ document.addEventListener("click", e => {
   if (e.target.closest("[data-claim-server]")) claimServerBonus();
 });
 renderBonusCard();
+
+
+/* ---------- Diamants : cartes complètes + rattrapage des anciens bonus ---------- */
+function awardCompleteGems() {
+  if (!state.completeGems) state.completeGems = {};
+  const gm = buildGradeMap();
+  let n = 0;
+  for (const c of CARD_DATABASE) {
+    if (state.completeGems[c.id]) continue;
+    const grades = gm[c.id];
+    if (grades && grades.size === GRADES.length && (state.collection[c.id] || 0) > 0) {
+      state.completeGems[c.id] = true;
+      n++;
+    }
+  }
+  if (n > 0) {
+    state.gems += n * COMPLETE_GEMS;
+    setTimeout(() => showToast(`💎 Carte complète : +💎 ${n * COMPLETE_GEMS}`), 400);
+  }
+}
+
+// Les joueurs qui avaient déjà pris les bonus Discord reçoivent aussi les diamants, une seule fois
+function grantRetroGems() {
+  let gems = 0;
+  if (state.discordBonus && !state.discordGems) { state.discordGems = true; gems += DISCORD_GEMS; }
+  if (state.serverBonus && !state.serverGems) { state.serverGems = true; gems += SERVER_GEMS; }
+  if (gems > 0) {
+    state.gems += gems;
+    saveState();
+    showToast(`💎 Diamants de rattrapage pour tes bonus Discord : +💎 ${gems}`);
+  }
+}
+grantRetroGems();

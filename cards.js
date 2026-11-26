@@ -9,7 +9,9 @@ const RARITY_CONFIG = {
 const EDITIONS = {
   E1: { name: "ORIGINS",  tag: "ÉDITION 01", gradient: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 50%, #ec4899 100%)", pack: "assets/boosters/origins.webp" },
   E2: { name: "ABYSSES",  tag: "ÉDITION 02", gradient: "linear-gradient(135deg, #10b981 0%, #0ea5e9 50%, #6366f1 100%)", pack: "assets/boosters/abysses.webp" },
-  E3: { name: "ÉCLIPSE",  tag: "ÉDITION 03", gradient: "linear-gradient(135deg, #f59e0b 0%, #ef4444 50%, #7c3aed 100%)", pack: "assets/boosters/eclipse.webp" }
+  E3: { name: "ÉCLIPSE",  tag: "ÉDITION 03", gradient: "linear-gradient(135deg, #f59e0b 0%, #ef4444 50%, #7c3aed 100%)", pack: "assets/boosters/eclipse.webp" },
+  // Booster spécial payé en diamants : 9 cartes des 3 éditions + 1 carte de la série exclusive Isekaz
+  E4: { name: "ISEKAZ",   tag: "SPÉCIAL ★",  gradient: "linear-gradient(135deg, #7f1d1d 0%, #b4161b 45%, #facc15 100%)", pack: "", special: true }
 };
 
 // Catalogue des cartes : ajoute tes visuels dans "image" (ex: "assets/carte01.png")
@@ -106,5 +108,21 @@ const CARD_DATABASE = [
   { id: "087", name: "Déesse Éclipsée", rarity: "UR", emoji: "🌘", bg: "linear-gradient(135deg, #2e1065, #e879f9)", image: "", edition: "E3" },
   { id: "088", name: "Horloger du Temps", rarity: "UR", emoji: "⏳", bg: "linear-gradient(135deg, #78350f, #facc15)", image: "", edition: "E3" },
   { id: "089", name: "Omega, l'Esprit Machine", rarity: "UR", emoji: "🧠", bg: "linear-gradient(135deg, #0f172a, #22d3ee)", image: "", edition: "E3" },
-  { id: "090", name: "Titan de l'Éclipse", rarity: "SEC", emoji: "🌑", bg: "linear-gradient(135deg, #050505, #facc15)", image: "", edition: "E3" }
+  { id: "090", name: "Titan de l'Éclipse", rarity: "SEC", emoji: "🌑", bg: "linear-gradient(135deg, #050505, #facc15)", image: "", edition: "E3" },
+  // ===== SÉRIE EXCLUSIVE ISEKAZ (booster spécial) : 10 cartes + 5 cartes faites main =====
+  { id: "091", name: "Isekaz #01", rarity: "R", emoji: "⭐", bg: "linear-gradient(135deg, #7f1d1d, #facc15)", image: "", edition: "E4", series: "ISEKAZ" },
+  { id: "092", name: "Isekaz #02", rarity: "R", emoji: "⭐", bg: "linear-gradient(135deg, #7f1d1d, #facc15)", image: "", edition: "E4", series: "ISEKAZ" },
+  { id: "093", name: "Isekaz #03", rarity: "R", emoji: "⭐", bg: "linear-gradient(135deg, #7f1d1d, #facc15)", image: "", edition: "E4", series: "ISEKAZ" },
+  { id: "094", name: "Isekaz #04", rarity: "R", emoji: "⭐", bg: "linear-gradient(135deg, #7f1d1d, #facc15)", image: "", edition: "E4", series: "ISEKAZ" },
+  { id: "095", name: "Isekaz #05", rarity: "R", emoji: "⭐", bg: "linear-gradient(135deg, #7f1d1d, #facc15)", image: "", edition: "E4", series: "ISEKAZ" },
+  { id: "096", name: "Isekaz #06", rarity: "R", emoji: "⭐", bg: "linear-gradient(135deg, #7f1d1d, #facc15)", image: "", edition: "E4", series: "ISEKAZ" },
+  { id: "097", name: "Isekaz #07", rarity: "R", emoji: "⭐", bg: "linear-gradient(135deg, #7f1d1d, #facc15)", image: "", edition: "E4", series: "ISEKAZ" },
+  { id: "098", name: "Isekaz #08", rarity: "R", emoji: "⭐", bg: "linear-gradient(135deg, #7f1d1d, #facc15)", image: "", edition: "E4", series: "ISEKAZ" },
+  { id: "099", name: "Isekaz #09", rarity: "R", emoji: "⭐", bg: "linear-gradient(135deg, #7f1d1d, #facc15)", image: "", edition: "E4", series: "ISEKAZ" },
+  { id: "100", name: "Isekaz #10", rarity: "R", emoji: "⭐", bg: "linear-gradient(135deg, #7f1d1d, #facc15)", image: "", edition: "E4", series: "ISEKAZ" },
+  { id: "101", name: "Faite main #01", rarity: "SEC", emoji: "💎", bg: "linear-gradient(135deg, #1c1917, #fde047)", image: "", edition: "E4", series: "ISEKAZ", handmade: true },
+  { id: "102", name: "Faite main #02", rarity: "SEC", emoji: "💎", bg: "linear-gradient(135deg, #1c1917, #fde047)", image: "", edition: "E4", series: "ISEKAZ", handmade: true },
+  { id: "103", name: "Faite main #03", rarity: "SEC", emoji: "💎", bg: "linear-gradient(135deg, #1c1917, #fde047)", image: "", edition: "E4", series: "ISEKAZ", handmade: true },
+  { id: "104", name: "Faite main #04", rarity: "SEC", emoji: "💎", bg: "linear-gradient(135deg, #1c1917, #fde047)", image: "", edition: "E4", series: "ISEKAZ", handmade: true },
+  { id: "105", name: "Faite main #05", rarity: "SEC", emoji: "💎", bg: "linear-gradient(135deg, #1c1917, #fde047)", image: "", edition: "E4", series: "ISEKAZ", handmade: true }
 ];

@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=19">
+  <link rel="stylesheet" href="style.css?v=28">
 </head>
 <body>
 
@@ -32,7 +32,7 @@
       <div class="currency-pill gold" title="Pièces (achat de boosters & gradation)">
         <span>🪙</span> <span id="coins-display">500</span>
       </div>
-      <div class="currency-pill gems" title="Gemmes (accélération de timer)">
+      <div class="currency-pill gems" title="Diamants (booster Isekaz, accélération de timer)">
         <span>💎</span> <span id="gems-display">100</span>
       </div>
       <button id="btn-login" class="btn-discord">Connexion Discord</button>
@@ -100,6 +100,7 @@
             <option value="E1">Édition 1 — Origins</option>
             <option value="E2">Édition 2 — Abysses</option>
             <option value="E3">Édition 3 — Éclipse</option>
+            <option value="E4">Spécial — Isekaz</option>
           </select>
           <select id="filter-status">
             <option value="ALL">Toutes (Possédées + Manquantes)</option>
@@ -168,7 +169,7 @@
           <li><strong>Cartes uniques :</strong> commune 1 pt, peu commune 2, rare 5, ultra rare 12, secrète 30. Une seule fois par carte, les doublons ne comptent pas.</li>
           <li><strong>Notes de gradation :</strong> 2 pts pour chaque combinaison carte + note obtenue (1 à 10, 9.5 compris). Obtenir à nouveau une note déjà possédée ne rapporte rien.</li>
           <li><strong>Carte complète :</strong> la carte normale + les 11 notes = cadre doré et +20 pts.</li>
-          <li><strong>Niveau :</strong> 1 + √(score ÷ 3). Niveau 2 dès 3 pts, niveau 5 à 48 pts, niveau 10 à 243 pts, niveau 20 à 1 083 pts, niveau 30 à 2 523 pts. Le maximum est de 4 143 pts (niveau 38) avec les 90 cartes complètes.</li>
+          <li><strong>Niveau :</strong> 1 + √(score ÷ 3). Niveau 2 dès 3 pts, niveau 5 à 48 pts, niveau 10 à 243 pts, niveau 20 à 1 083 pts, niveau 30 à 2 523 pts. Le maximum est de 4 973 pts (niveau 41) avec les 105 cartes complètes.</li>
         </ul>
       </details>
 
@@ -203,8 +204,8 @@
   <div id="toast" class="toast hidden"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="cards.js?v=19"></script>
-  <script src="app.js?v=19"></script>
-  <script src="games.js?v=19"></script>
+  <script src="cards.js?v=28"></script>
+  <script src="app.js?v=28"></script>
+  <script src="games.js?v=28"></script>
 </body>
 </html>

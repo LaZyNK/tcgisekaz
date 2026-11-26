@@ -1,6 +1,10 @@
 const SAVE_KEY = "tcg_studio_save_v1";
 const FREE_PACK_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes entre chaque booster gratuit
 const PACK_COST = 150;
+const ISEKAZ_COST = 50;               // prix du booster Isekaz en diamants
+const ISEKAZ_CARDS = 10;              // 9 cartes des 3 éditions + 1 carte exclusive
+const ISEKAZ_HANDMADE_CHANCE = 0.03;  // chance, par booster, que la carte exclusive soit une « faite main »
+const DAILY_GEMS = 10;                // diamants du bonus quotidien
 const DAILY_BASE = 100;       // bonus quotidien de base
 const DAILY_STREAK_STEP = 25; // +25 par jour consécutif
 const DAILY_STREAK_MAX = 6;   // plafonné à +150 (jour 7 et suivants = 250)
@@ -18,20 +22,21 @@ function claimDaily() {
   const streak = nextDailyStreak();
   const gain = dailyReward(streak);
   state.coins += gain;
+  state.gems += DAILY_GEMS;
   state.lastDaily = todayKey();
   state.dailyStreak = streak;
   saveState();
-  showToast(`🎁 Bonus quotidien : +🪙 ${gain} (série de ${streak} jour${streak > 1 ? "s" : ""})`);
+  showToast(`🎁 Bonus quotidien : +🪙 ${gain} +💎 ${DAILY_GEMS} (série de ${streak} jour${streak > 1 ? "s" : ""})`);
 }
 function updateDailyButton() {
   const btn = document.getElementById("btn-daily");
   if (!btn) return;
   if (dailyAvailable()) {
     btn.disabled = false;
-    btn.textContent = `🎁 BONUS QUOTIDIEN • 🪙 ${dailyReward(nextDailyStreak())}`;
+    btn.textContent = `🎁 BONUS QUOTIDIEN • 🪙 ${dailyReward(nextDailyStreak())} + 💎 ${DAILY_GEMS}`;
   } else {
     btn.disabled = true;
-    btn.textContent = `✅ BONUS RÉCUPÉRÉ • série ${state.dailyStreak || 1} j • demain 🪙 ${dailyReward((state.dailyStreak || 1) + 1)}`;
+    btn.textContent = `✅ BONUS RÉCUPÉRÉ • série ${state.dailyStreak || 1} j • demain 🪙 ${dailyReward((state.dailyStreak || 1) + 1)} + 💎 ${DAILY_GEMS}`;
   }
 }
 const SKIP_COST = 25;
@@ -90,6 +95,7 @@ function migrateState(s) {
 }
 
 function saveState() {
+  if (typeof awardCompleteGems === "function") awardCompleteGems();
   localStorage.setItem(SAVE_KEY, JSON.stringify(state));
   queueCloudSave();
   updateUI();
@@ -140,7 +146,8 @@ function formatDuration(ms) {
 
 /* --- TIRAGE ET OUVERTURE DE BOOSTER (1 PAR 1) --- */
 function rollCard(minRarity = null, edition = state.edition) {
-  let pool = CARD_DATABASE.filter(c => c.edition === edition);
+  // "ALL" = les 3 éditions classiques (l'édition spéciale Isekaz n'est jamais tirée ici)
+  let pool = CARD_DATABASE.filter(c => edition === "ALL" ? !EDITIONS[c.edition].special : c.edition === edition);
   if (minRarity) pool = pool.filter(c => ["R", "UR", "SEC"].includes(c.rarity));
 
   const weighted = pool.map(card => ({ card, weight: RARITY_CONFIG[card.rarity].weight }));
@@ -151,6 +158,15 @@ function rollCard(minRarity = null, edition = state.edition) {
     rnd -= item.weight;
   }
   return pool[0];
+}
+
+// Carte exclusive du booster Isekaz : 3 % de « faite main », sinon l'une des 10 cartes de la série
+function rollIsekazExclusive() {
+  const series = CARD_DATABASE.filter(c => c.edition === "E4");
+  const handmade = series.filter(c => c.handmade);
+  const regular = series.filter(c => !c.handmade);
+  const pool = (Math.random() < ISEKAZ_HANDMADE_CHANCE && handmade.length) ? handmade : regular;
+  return pool[Math.floor(Math.random() * pool.length)];
 }
 
 function playRareEffect(slot, rarity) {
@@ -200,16 +216,27 @@ let isOpeningPack = false;
 
 function openPack() {
   if (isOpeningPack) return;
-  if (state.packs <= 0) {
+  const isIsekaz = state.edition === "E4";
+  if (isIsekaz) {
+    if (state.gems < ISEKAZ_COST) return showToast(`❌ Il faut 💎 ${ISEKAZ_COST} pour ouvrir un booster Isekaz.`);
+  } else if (state.packs <= 0) {
     showToast("❌ Aucun booster disponible ! Achètes-en un ou attends le timer.");
     return;
   }
 
   isOpeningPack = true;
-  state.packs -= 1;
-
-  // 4 cartes aléatoires + 1 carte garantie Rare minimum en dernière position
-  const pulled = [rollCard(), rollCard(), rollCard(), rollCard(), rollCard("R")];
+  let pulled;
+  if (isIsekaz) {
+    state.gems -= ISEKAZ_COST;
+    // 9 cartes tirées dans les 3 éditions + 1 carte exclusive Isekaz (rare minimum) en dernière position
+    pulled = [];
+    for (let i = 0; i < ISEKAZ_CARDS - 1; i++) pulled.push(rollCard(null, "ALL"));
+    pulled.push(rollIsekazExclusive());
+  } else {
+    state.packs -= 1;
+    // 4 cartes aléatoires + 1 carte garantie Rare minimum en dernière position
+    pulled = [rollCard(), rollCard(), rollCard(), rollCard(), rollCard("R")];
+  }
   // Précharge les illustrations pour qu'elles soient prêtes au retournement
   pulled.forEach(c => { if (c.image) new Image().src = c.image; });
   let discovery = 0;
@@ -245,7 +272,7 @@ function openPack() {
         <div class="flip-inner">
           <div class="flip-back">
             <div class="flip-back-emblem">✦</div>
-            <div class="flip-back-label">Carte ${idx + 1}/5</div>
+            <div class="flip-back-label">Carte ${idx + 1}/${pulled.length}</div>
           </div>
           <div class="flip-front">
             ${renderCardHTML(card)}
@@ -445,11 +472,11 @@ function renderCardHTML(card, opts = {}) {
   const artContent = showArt ? "" : (opts.locked ? "?" : card.emoji);
 
   return `
-    <div class="tcg-card rarity-${card.rarity} ${opts.locked ? "locked" : ""} ${opts.complete ? "complete" : ""} ${opts.clickable ? "clickable" : ""}" data-card-id="${card.id}">
+    <div class="tcg-card rarity-${card.rarity} ${opts.locked ? "locked" : ""} ${opts.complete ? "complete" : ""} ${card.series ? "series-isekaz" : ""} ${card.handmade ? "handmade" : ""} ${opts.clickable ? "clickable" : ""}" data-card-id="${card.id}">
       <div class="holo-overlay"></div>
       <div class="card-header">
         <span>#${card.id}</span>
-        <span>${card.rarity}${opts.complete ? " ★ 100 %" : ""}</span>
+        <span>${card.rarity}${card.series ? " ✦ ISEKAZ" : ""}${opts.complete ? " ★ 100 %" : ""}</span>
       </div>
       <div class="card-art" style="${artStyle}">${artContent}</div>
       <div class="card-name">${opts.locked ? "???" : card.name}</div>
@@ -745,6 +772,16 @@ function renderEditionPicker() {
   pack.querySelector(".booster-tag").textContent = ed.tag;
   pack.querySelector(".booster-art h2").textContent = ed.name;
   pack.setAttribute("aria-label", `Booster ${ed.name}`);
+
+  // Booster spécial (diamants) : textes et boutons adaptés
+  const special = !!ed.special;
+  pack.querySelector(".booster-art p").textContent = special ? `${ISEKAZ_CARDS} CARTES • 1 EXCLUSIVE` : "5 CARTES • 1 RARE MIN.";
+  document.querySelector(".pack-info").textContent = special
+    ? `${ISEKAZ_CARDS} cartes des 3 éditions • 1 carte exclusive Isekaz (3 % de faite main)`
+    : "5 cartes • 1 rare minimum";
+  pack.querySelector(".booster-counter").classList.toggle("hidden", special);
+  document.getElementById("btn-buy-pack").classList.toggle("hidden", special);
+  document.getElementById("btn-open-pack").textContent = special ? `OUVRIR (💎 ${ISEKAZ_COST})` : "OUVRIR UN BOOSTER";
 
   if (ed.pack) {
     // Paquet illustré : l'image remplace le dégradé et les textes
